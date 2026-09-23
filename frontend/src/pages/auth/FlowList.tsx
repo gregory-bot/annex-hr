@@ -2,13 +2,17 @@ import { motion } from 'framer-motion'
 import { Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
+export type FlowStep = string | { title: string; description?: string }
+
 /** Compact vertical progress list for multi-stage journeys (e.g. company admin setup). */
-export function FlowList({ title, steps, current, light }: { title: string; steps: string[]; current: number; light?: boolean }) {
+export function FlowList({ title, steps, current, light }: { title: string; steps: FlowStep[]; current: number; light?: boolean }) {
   return (
     <div>
       <div className={cn('text-xs font-semibold uppercase tracking-[0.14em]', light ? 'text-white/75' : 'text-muted-foreground')}>{title}</div>
       <ol className="mt-4 grid grid-cols-1">
-        {steps.map((s, i) => {
+        {steps.map((step, i) => {
+          const s = typeof step === 'string' ? step : step.title
+          const description = typeof step === 'string' ? undefined : step.description
           const done = i < current
           const active = i === current
           return (
@@ -43,14 +47,17 @@ export function FlowList({ title, steps, current, light }: { title: string; step
               >
                 {done ? <Check className="size-3" strokeWidth={3} /> : i + 1}
               </motion.span>
-              <span
-                className={cn(
-                  'pt-0.5 text-sm',
-                  light ? (done || active ? 'text-white' : 'text-white/60') : done || active ? 'text-foreground' : 'text-muted-foreground',
-                  active && 'font-semibold',
-                )}
-              >
-                {s}
+              <span className="min-w-0 pt-0.5">
+                <span
+                  className={cn(
+                    'block text-sm',
+                    light ? (done || active ? 'text-white' : 'text-white/60') : done || active ? 'text-foreground' : 'text-muted-foreground',
+                    active && 'font-semibold',
+                  )}
+                >
+                  {s}
+                </span>
+                {description && <span className={cn('mt-0.5 block text-xs leading-relaxed', light ? 'text-white/65' : 'text-muted-foreground')}>{description}</span>}
               </span>
             </li>
           )

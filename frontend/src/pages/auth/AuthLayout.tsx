@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { CalendarDays, Check, Moon, ShieldCheck, Star, Sun, Users, Wallet } from 'lucide-react'
+import { CalendarDays, Moon, ShieldCheck, Star, Sun, Users, Wallet } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { PersonAvatar } from '@/components/ui/avatar'
 import { Logo } from '@/components/shared/Logo'
@@ -18,7 +18,7 @@ export function ThemeToggle() {
 /** Default brand panel: product glimpse + customer testimonial on a red gradient. */
 function BrandPanel({ children }: { children?: React.ReactNode }) {
   return (
-    <div className="relative flex h-full flex-col justify-between overflow-hidden bg-gradient-to-br from-primary via-primary to-secondary p-10 text-white xl:p-14">
+    <div className="relative flex h-full flex-col overflow-hidden bg-gradient-to-br from-primary via-primary to-secondary p-10 text-white xl:p-14">
       <div className="pointer-events-none absolute inset-0 bg-grid opacity-20 [mask-image:radial-gradient(ellipse_at_top_right,black,transparent_70%)]" aria-hidden />
       <div className="pointer-events-none absolute -bottom-40 -left-20 size-[28rem] rounded-full bg-black/15 blur-3xl" aria-hidden />
       <div className="relative">
@@ -27,7 +27,7 @@ function BrandPanel({ children }: { children?: React.ReactNode }) {
         </span>
       </div>
 
-      <div className="relative">
+      <div className="relative my-auto py-10">
         {children ?? (
           <>
             <motion.div
@@ -58,13 +58,14 @@ function BrandPanel({ children }: { children?: React.ReactNode }) {
                 <Star key={i} className="size-4 fill-current" />
               ))}
             </div>
-            <blockquote className="mt-4 max-w-md text-balance text-2xl font-semibold leading-snug tracking-tight">
-              “Annex HR gave our people team back two days every payroll cycle. Leave, onboarding and compliance finally live in one place.”
+            <blockquote className="mt-4 max-w-md space-y-3 text-balance text-2xl font-semibold leading-snug tracking-tight">
+              <p>“Leave requests used to take three days to approve. Now it's one tap.</p>
+              <p>Employee documents used to be scattered everywhere. Now they're all in one place.”</p>
             </blockquote>
             <div className="mt-6 flex items-center gap-3">
-              <PersonAvatar name="Faith Njeri" className="size-10 ring-2 ring-white/40" />
+              <PersonAvatar name="Anita Milgo" className="size-10 ring-2 ring-white/40" />
               <div>
-                <div className="text-sm font-semibold">Faith Njeri</div>
+                <div className="text-sm font-semibold">Anita Milgo</div>
                 <div className="text-xs text-white/75">Head of People, Annex Technologies</div>
               </div>
             </div>
@@ -72,13 +73,6 @@ function BrandPanel({ children }: { children?: React.ReactNode }) {
         )}
       </div>
 
-      <div className="relative flex flex-wrap gap-x-5 gap-y-2 text-xs text-white/80">
-        {['PAYE, SHIF & NSSF built in', 'Data Protection Act 2019', 'SOC 2-aligned controls'].map((t) => (
-          <span key={t} className="inline-flex items-center gap-1.5">
-            <Check className="size-3.5" /> {t}
-          </span>
-        ))}
-      </div>
     </div>
   )
 }
@@ -108,7 +102,6 @@ export function AuthLayout({
         <main className="flex flex-1 items-start justify-center px-4 py-6 sm:items-center sm:px-8 sm:py-10">
           <div className={cn('w-full', wide ? 'max-w-xl' : 'max-w-md')}>{children}</div>
         </main>
-        <footer className="px-4 pb-6 text-center text-xs text-muted-foreground sm:px-8 lg:text-left">© 2026 Annex HR · Privacy · Terms</footer>
       </div>
       <aside className="sticky top-0 hidden h-dvh lg:block">
         <BrandPanel>{aside}</BrandPanel>

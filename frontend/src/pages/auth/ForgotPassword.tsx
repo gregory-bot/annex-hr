@@ -19,8 +19,8 @@ export default function ForgotPassword() {
   const [loading, setLoading] = useState(false)
   const [sent, setSent] = useState(false)
 
-  const { ws, checking } = useWorkspaceLookup(slug)
-  const slugError = slug && !ws && !checking ? `No workspace found at ${slug}.annexhr.com` : touched && !slug ? 'Enter your company workspace' : undefined
+  const { ws, checking, unreachable } = useWorkspaceLookup(slug)
+  const slugError = slug && !ws && !checking ? (unreachable ? "Can't reach the Annex HR server — check your connection and try again" : `No workspace found at ${slug}.annexhr.com`) : touched && !slug ? 'Enter your company workspace' : undefined
   const emailOk = /^\S+@\S+\.\S+$/.test(email)
   const emailError = touched && !emailOk ? 'Enter a valid work email' : undefined
 

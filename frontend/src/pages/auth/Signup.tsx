@@ -13,7 +13,7 @@ import { useAuth } from '@/context/auth'
 import { cn } from '@/lib/utils'
 import { AuthLayout, slideVariants } from './AuthLayout'
 import { CodeInput } from './CodeInput'
-import { FlowList } from './FlowList'
+import { FlowList, type FlowStep } from './FlowList'
 import { Field, PasswordInput, StrengthMeter, SubmitButton, passwordStrength } from './fields'
 
 const industries = ['Financial Services', 'Software & IT Services', 'Healthcare', 'Manufacturing', 'NGO & Non-profit', 'Faith-based Organisation', 'Retail & E-commerce', 'Logistics', 'Education', 'Hospitality']
@@ -31,7 +31,6 @@ const statutory: Record<string, string> = {
   Ethiopia: 'PIT, Pension',
 }
 
-const adminFlow = ['Register company', 'Verify company email', 'Create workspace', 'Add departments', 'Invite employees', 'Employees join', 'Onboarding checklist', 'Dashboard updates']
 
 const slugify = (s: string) =>
   s
@@ -144,6 +143,13 @@ function Provisioning({ form, onDone }: { form: Form; onDone: () => void }) {
   )
 }
 
+const setupSteps: FlowStep[] = [
+  { title: 'Create your workspace', description: 'Company details and your admin account.' },
+  { title: 'Verify your email', description: 'Confirm your work address to secure the workspace.' },
+  { title: 'Invite your team', description: 'Employees join through a secure invitation link.' },
+  { title: 'Go live', description: 'Onboarding, leave and payroll run from one place.' },
+]
+
 export default function Signup() {
   const { register } = useAuth()
   const [domain, setDomain] = useState<string | null>(null)
@@ -164,7 +170,6 @@ export default function Signup() {
     setStep(n)
   }
 
-  const flowIndex = step === 0 ? 0 : step === 1 ? (phase === 'verify' ? 1 : 2) : 3
 
   const submitDetails = (e: React.FormEvent) => {
     e.preventDefault()
@@ -206,12 +211,14 @@ export default function Signup() {
   }
 
   const slug = slugify(form.company)
+  // Step 0: details · step 1: verifying → provisioned · step 2: admin ready (next up: invite the team).
+  const setupIndex = step === 0 ? 0 : step === 1 ? (phase === 'verify' ? 1 : 2) : 2
   const aside = (
     <div className="max-w-sm">
-      <h2 className="text-balance text-3xl font-bold tracking-tight">Your HR workspace, live in minutes.</h2>
-      <p className="mt-3 text-white/80">Every company gets its own isolated workspace with local statutory settings pre-configured.</p>
-      <div className="mt-8 rounded-2xl border border-white/20 bg-white/10 p-5 backdrop-blur">
-        <FlowList title="Company admin flow" steps={adminFlow} current={flowIndex} light />
+      <h2 className="text-balance text-4xl font-bold tracking-tight">Set up your company in minutes.</h2>
+      <p className="mt-4 text-lg text-white/80">One secure home for your people, payroll and policies.</p>
+      <div className="mt-10 rounded-2xl border border-white/20 bg-white/10 p-6 backdrop-blur">
+        <FlowList title="How it works" steps={setupSteps} current={setupIndex} light />
       </div>
     </div>
   )
@@ -220,14 +227,6 @@ export default function Signup() {
     <AuthLayout
       wide
       aside={aside}
-      topRight={
-        <span className="mr-1 hidden text-muted-foreground sm:inline">
-          Have a workspace?{' '}
-          <Link to="/login" className="font-medium text-primary hover:underline">
-            Sign in
-          </Link>
-        </span>
-      }
     >
       <Stepper steps={['Company details', 'Verify & create', 'Admin ready']} current={step} className="mb-8" />
 
@@ -272,9 +271,6 @@ export default function Signup() {
               <SubmitButton loading={loading} loadingText="Creating account…" className="mt-2">
                 Continue <ArrowRight />
               </SubmitButton>
-              <p className="text-center text-xs text-muted-foreground">
-                By continuing you agree to the Annex HR Terms and Privacy Policy.
-              </p>
             </form>
           </motion.div>
         )}
@@ -389,15 +385,18 @@ export default function Signup() {
         )}
       </AnimatePresence>
 
-      <div className="mt-10 rounded-2xl border bg-subtle p-4 lg:hidden">
-        <FlowList title="Company admin flow" steps={adminFlow} current={flowIndex} />
+      {step === 0 && (
+        <p className="mt-6 text-center text-sm text-muted-foreground">
+          Already have a workspace?{' '}
+          <Link to="/login" className="font-medium text-primary hover:underline">
+            Sign in
+          </Link>
+        </p>
+      )}
+
+      <div className="mt-10 rounded-2xl border bg-subtle p-5 lg:hidden">
+        <FlowList title="How it works" steps={setupSteps} current={setupIndex} />
       </div>
-      <p className="mt-6 text-center text-sm text-muted-foreground sm:hidden">
-        Have a workspace?{' '}
-        <Link to="/login" className="font-medium text-primary hover:underline">
-          Sign in
-        </Link>
-      </p>
     </AuthLayout>
   )
 }

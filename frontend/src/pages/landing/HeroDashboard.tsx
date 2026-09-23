@@ -72,15 +72,7 @@ export function HeroDashboard() {
         </div>
 
         <div className="grid grid-cols-1 gap-3 p-3 sm:p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Good morning, Faith</div>
-              <div className="text-sm font-semibold">People overview</div>
-            </div>
-            <Badge variant="success" dot>
-              All systems synced
-            </Badge>
-          </div>
+          <div className="text-sm font-semibold">People overview</div>
 
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             {stats.map((s, i) => (

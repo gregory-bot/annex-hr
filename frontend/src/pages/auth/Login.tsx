@@ -2,12 +2,11 @@ import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { toast } from 'sonner'
-import { ArrowRight, BadgeCheck, CircleAlert, Lock, Mail, Sparkles } from 'lucide-react'
+import { BadgeCheck, CircleAlert, Lock, Mail, Sparkles } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { useAuth } from '@/context/auth'
 import { useWorkspaceLookup } from './useWorkspaceLookup'
@@ -97,8 +96,8 @@ export default function Login() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const { ws, checking } = useWorkspaceLookup(slug)
-  const slugError = slug && !ws && !checking ? `No workspace found at ${slug}.annexhr.com` : !slug && touched ? 'Enter your company workspace' : undefined
+  const { ws, checking, unreachable } = useWorkspaceLookup(slug)
+  const slugError = slug && !ws && !checking ? (unreachable ? "Can't reach the Annex HR server — check your connection and try again" : `No workspace found at ${slug}.annexhr.com`) : !slug && touched ? 'Enter your company workspace' : undefined
   const emailError = touched && !/^\S+@\S+\.\S+$/.test(email) ? 'Enter a valid work email' : undefined
   const pwError = touched && password.length < 6 ? 'Password must be at least 6 characters' : undefined
 
@@ -120,16 +119,7 @@ export default function Login() {
   }
 
   return (
-    <AuthLayout
-      topRight={
-        <span className="mr-1 hidden text-muted-foreground sm:inline">
-          New company?{' '}
-          <Link to="/signup" className="font-medium text-primary hover:underline">
-            Create workspace
-          </Link>
-        </span>
-      }
-    >
+    <AuthLayout>
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
         <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Sign in to your workspace</h1>
         <p className="mt-2 text-sm text-muted-foreground">Enter your company workspace to continue. Employees can only log into their own organization.</p>
@@ -204,31 +194,27 @@ export default function Login() {
           </SubmitButton>
         </form>
 
-        <div className="my-6 flex items-center gap-3 text-xs text-muted-foreground">
-          <Separator className="flex-1" /> or try the demo <Separator className="flex-1" />
-        </div>
+        <p className="mt-6 text-center text-sm text-muted-foreground">
+          New to Annex HR?{' '}
+          <Link to="/signup" className="font-medium text-primary hover:underline">
+            Create a company workspace
+          </Link>
+        </p>
+        <p className="mt-2 text-center text-xs text-muted-foreground">
+          Got an invite?{' '}
+          <Link to="/invite/demo" className="font-medium text-foreground hover:text-primary hover:underline">
+            Accept your invitation
+          </Link>
+        </p>
 
-        {demoEnabled && <DemoAccounts />}
-
-        <div className="mt-6 grid grid-cols-1 gap-2 text-center text-sm text-muted-foreground">
-          <p>
-            Got an invite?{' '}
-            <Link to="/invite/demo" className="font-medium text-primary hover:underline">
-              Accept your invitation
-            </Link>
-          </p>
-          <p className="sm:hidden">
-            New company?{' '}
-            <Link to="/signup" className="font-medium text-primary hover:underline">
-              Create a workspace
-            </Link>
-          </p>
-          <Button asChild variant="link" className="mx-auto hidden text-sm sm:inline-flex">
-            <Link to="/signup">
-              Start a free company workspace <ArrowRight />
-            </Link>
-          </Button>
-        </div>
+        {demoEnabled && (
+          <>
+            <div className="my-6 flex items-center gap-3 text-xs text-muted-foreground">
+              <Separator className="flex-1" /> or try the demo <Separator className="flex-1" />
+            </div>
+            <DemoAccounts />
+          </>
+        )}
       </motion.div>
     </AuthLayout>
   )

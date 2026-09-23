@@ -4,25 +4,17 @@ import { motion } from 'framer-motion'
 import { toast } from 'sonner'
 import {
   ArrowRight,
-  CalendarDays,
   FolderLock,
   Gauge,
   LoaderCircle,
-  LogOut,
   Menu,
   Moon,
   Play,
   Plug,
-  Rocket,
-  ShieldCheck,
   Sparkles,
   Star,
   Sun,
-  Timer,
-  Users,
-  Wallet,
   type LucideIcon,
-  CircleCheck,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -47,15 +39,15 @@ const navLinks = [
   { label: 'Customers', href: '#customers' },
 ]
 
-const features: { title: string; body: string; icon: LucideIcon }[] = [
-  { title: 'Employee Directory', body: 'One searchable record for every person, contract and reporting line.', icon: Users },
-  { title: 'Onboarding Automation', body: 'Checklists, documents and IT access that run themselves from day one.', icon: Rocket },
-  { title: 'Leave Management', body: 'Balances, accruals and approvals aligned with the Employment Act.', icon: CalendarDays },
-  { title: 'Payroll Automation', body: 'PAYE, SHIF, NSSF and Housing Levy computed and approved in minutes.', icon: Wallet },
-  { title: 'Performance Reviews', body: 'Goals, 360° feedback and calibrated review cycles on autopilot.', icon: Gauge },
-  { title: 'Compliance Management', body: 'Expiring permits, KRA PINs and policy sign-offs tracked with alerts.', icon: ShieldCheck },
-  { title: 'Consultants & Timesheets', body: 'Log hours, approve timesheets and pay contractors accurately.', icon: Timer },
-  { title: 'Exit & Offboarding', body: 'Clearance, asset returns and final dues handled without spreadsheets.', icon: LogOut },
+const features: { title: string; body: string }[] = [
+  { title: 'Employee Directory', body: 'One searchable record for every person, contract and reporting line.' },
+  { title: 'Onboarding Automation', body: 'Checklists, documents and IT access that run themselves from day one.' },
+  { title: 'Leave Management', body: 'Balances, accruals and approvals aligned with the Employment Act.' },
+  { title: 'Payroll Automation', body: 'PAYE, SHIF, NSSF and Housing Levy computed and approved in minutes.' },
+  { title: 'Performance Reviews', body: 'Goals, 360° feedback and calibrated review cycles on autopilot.' },
+  { title: 'Compliance Management', body: 'Expiring permits, KRA PINs and policy sign-offs tracked with alerts.' },
+  { title: 'Consultants & Timesheets', body: 'Log hours, approve timesheets and pay contractors accurately.' },
+  { title: 'Exit & Offboarding', body: 'Clearance, asset returns and final dues handled without spreadsheets.' },
 ]
 
 const testimonials = [
@@ -165,29 +157,15 @@ function Hero({ onDemo }: { onDemo: () => void }) {
       </div>
       <div className="mx-auto grid grid-cols-1 max-w-7xl items-center gap-8 px-4 pb-16 pt-10 sm:px-6 sm:pt-16 lg:grid-cols-2 lg:gap-12 lg:pb-24 lg:pt-20">
         <div className="text-center lg:text-left">
-          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
-            <span className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-accent/70 px-3 py-1 text-xs font-medium text-accent-foreground">
-              <Sparkles className="size-3.5" />
-              HR &amp; payroll software for African companies
-            </span>
-          </motion.div>
           <motion.h1
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.55, delay: 0.08 }}
-            className="mt-5 text-balance text-4xl font-bold leading-[1.08] tracking-tight sm:text-5xl lg:text-[3.6rem]"
+            className="text-balance text-4xl font-bold leading-[1.08] tracking-tight sm:text-5xl lg:text-[3.6rem]"
           >
             Hire, pay and manage your team{' '}
             <span className="bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">in one place.</span>
           </motion.h1>
-          <motion.p
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.55, delay: 0.16 }}
-            className="mx-auto mt-5 max-w-xl text-balance text-base text-muted-foreground sm:text-lg lg:mx-0"
-          >
-            Annex HR runs onboarding, leave, payroll and performance for you — so your HR team spends less time on paperwork and more time on people.
-          </motion.p>
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
@@ -203,18 +181,6 @@ function Hero({ onDemo }: { onDemo: () => void }) {
               <Play /> Book Demo
             </Button>
           </motion.div>
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.4 }}
-            className="mt-6 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-[13px] text-muted-foreground lg:justify-start"
-          >
-            {['Payroll with PAYE, SHIF & NSSF built in', 'Leave approved in one tap', 'Every employee file in one place'].map((t) => (
-              <span key={t} className="inline-flex items-center gap-1.5 font-medium">
-                <CircleCheck className="size-4 text-primary" /> {t}
-              </span>
-            ))}
-          </motion.div>
         </div>
         <HeroDashboard />
       </div>
@@ -227,7 +193,7 @@ function Trusted() {
     <section className="pb-8 sm:pb-12">
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
         <Reveal>
-          <p className="text-center text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Trusted by growing organisations across East Africa</p>
+          <p className="text-center text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Trusted by organisations across the globe</p>
         </Reveal>
         <div className="mt-6">
           <TrustedLogos />
@@ -244,22 +210,15 @@ function Platform() {
         <SectionHeading
           eyebrow="Platform"
           title="Every HR process, one connected system"
-          description="Eight modules that share one employee record, so every change flows through onboarding, payroll and compliance automatically."
         />
         <div className="mt-12 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {features.map((f, i) => (
             <Reveal key={f.title} delay={(i % 4) * 0.06}>
-              <motion.div
-                whileHover={{ y: -4 }}
-                transition={{ type: 'spring', stiffness: 300, damping: 22 }}
-                className="group h-full rounded-2xl border bg-card p-5 shadow-sm transition-shadow hover:shadow-xl hover:shadow-primary/5"
-              >
-                <div className="flex size-11 items-center justify-center rounded-xl bg-accent text-primary transition-colors duration-300 group-hover:bg-primary group-hover:text-primary-foreground">
-                  <f.icon className="size-5 transition-transform duration-300 group-hover:scale-110" />
-                </div>
-                <h3 className="mt-4 font-semibold">{f.title}</h3>
+              <div className="h-full rounded-2xl border bg-card p-6">
+                <div className="text-xs font-semibold tabular text-primary">{String(i + 1).padStart(2, '0')}</div>
+                <h3 className="mt-3 font-semibold">{f.title}</h3>
                 <p className="mt-1.5 text-sm text-muted-foreground">{f.body}</p>
-              </motion.div>
+              </div>
             </Reveal>
           ))}
         </div>
