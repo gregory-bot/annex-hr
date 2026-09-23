@@ -1,0 +1,26 @@
+# dependencies
+node_modules/
+
+# builds
+dist/
+build/
+*.tsbuildinfo
+
+# environment — never commit real credentials
+.env
+.env.*
+!.env.example
+
+# certificates
+*.pem
+*.crt
+certs/
+
+# logs & OS
+*.log
+npm-debug.log*
+.DS_Store
+.vscode/*
+!.vscode/extensions.json
+.idea/
+coverage/

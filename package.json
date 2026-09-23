@@ -1,0 +1,26 @@
+{
+  "name": "annex-hr",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Annex HR \u2014 Automate Every Employee Journey. Multi-tenant HR automation platform.",
+  "workspaces": [
+    "shared",
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "dev": "concurrently -n api,web -c red,blue \"npm:dev:backend\" \"npm:dev:frontend\"",
+    "dev:backend": "npm run dev -w @annex/backend",
+    "dev:frontend": "npm run dev -w @annex/frontend",
+    "build": "npm run build -w @annex/backend && npm run build -w @annex/frontend",
+    "typecheck": "npm run typecheck -w @annex/backend && npm run typecheck -w @annex/frontend",
+    "db:migrate": "npm run db:migrate -w @annex/backend",
+    "db:seed": "npm run db:seed -w @annex/backend",
+    "db:reset": "npm run db:reset -w @annex/backend",
+    "start": "npm run start -w @annex/backend",
+    "db:seed:force": "npm run db:seed:force -w @annex/backend"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.0"
+  }
+}
