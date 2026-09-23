@@ -13,7 +13,7 @@ import { AuthLayout, slideVariants } from './AuthLayout'
 import { Field, SubmitButton, WorkspaceInput } from './fields'
 
 export default function ForgotPassword() {
-  const [slug, setSlug] = useState('umba')
+  const [slug, setSlug] = useState('annex')
   const [email, setEmail] = useState('')
   const [touched, setTouched] = useState(false)
   const [loading, setLoading] = useState(false)

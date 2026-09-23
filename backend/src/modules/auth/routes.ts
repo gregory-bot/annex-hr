@@ -95,7 +95,7 @@ authRouter.post('/register', authLimiter, async (req, res) => {
 
   const passwordHash = await bcrypt.hash(body.password, 12)
   const adminName = body.adminName ?? body.email.split('@')[0]!.split(/[._-]/).map((p) => p[0]!.toUpperCase() + p.slice(1)).join(' ')
-  const template = workspaceData['ws-umba']
+  const template = workspaceData['ws-annex']
 
   const ctx = await tx(async (db) => {
     const [ws] = await query<{ id: string }>(

@@ -8,7 +8,7 @@ import { pool, tx } from './pool'
 import { insertMany } from './sql'
 
 /**
- * Loads the deterministic demo workspaces (Umba, Annex Technologies, CHQI).
+ * Loads the deterministic demo workspaces (Annex Technologies, Demo Manufacturing Ltd, CHQI).
  * Idempotent: existing demo workspaces are skipped unless --force is passed,
  * in which case they are deleted (cascading) and recreated.
  */

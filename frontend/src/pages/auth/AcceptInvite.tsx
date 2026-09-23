@@ -98,7 +98,7 @@ export default function AcceptInvite() {
   const { token } = useParams()
   const { acceptInvite } = useAuth()
   const navigate = useNavigate()
-  const umba = workspaceData['ws-umba']
+  const demoWs = workspaceData['ws-annex']
 
   // Real invitations are loaded from the API; /invite/demo walks through the flow with demo data.
   const isDemo = !token || token === 'demo' || USE_MOCK_API
@@ -112,12 +112,12 @@ export default function AcceptInvite() {
       .catch((err) => setInviteError(errorMessage(err)))
   }, [isDemo, token])
 
-  const demoInvitee = useMemo(() => personaFor('ws-umba', 'employee'), [])
+  const demoInvitee = useMemo(() => personaFor('ws-annex', 'employee'), [])
   const invitee = invite ? { name: nameFromEmail(invite.email), email: invite.email, title: 'New starter', phone: '' } : demoInvitee
-  const inviter = invite?.invitedBy ?? umba.employees.find((e) => e.role === 'company_admin')?.name ?? 'Your HR team'
+  const inviter = invite?.invitedBy ?? demoWs.employees.find((e) => e.role === 'company_admin')?.name ?? 'Your HR team'
   const company = invite
     ? { name: invite.workspace.name, logoText: invite.workspace.logoText, domain: invite.workspace.domain, industry: invite.workspace.industry, hq: invite.workspace.country }
-    : { name: umba.workspace.name, logoText: umba.workspace.logoText, domain: umba.workspace.domain, industry: umba.workspace.industry, hq: `${umba.workspace.offices[0]?.city}, ${umba.workspace.country}` }
+    : { name: demoWs.workspace.name, logoText: demoWs.workspace.logoText, domain: demoWs.workspace.domain, industry: demoWs.workspace.industry, hq: `${demoWs.workspace.offices[0]?.city}, ${demoWs.workspace.country}` }
 
   const [accepted, setAccepted] = useState(false)
   const [step, setStep] = useState(0)

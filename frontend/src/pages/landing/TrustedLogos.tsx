@@ -2,28 +2,13 @@ import { motion } from 'framer-motion'
 
 /* Simple typographic wordmarks. Brand hues only show on hover (grayscale by default). */
 
-function Umba() {
-  return (
-    <div className="flex items-center gap-2">
-      <svg viewBox="0 0 28 28" className="size-7" aria-hidden>
-        <circle cx="14" cy="14" r="14" fill="#6C2BD9" />
-        <path d="M8 9v6a6 6 0 0 0 12 0V9h-3.2v6a2.8 2.8 0 0 1-5.6 0V9Z" fill="#fff" />
-      </svg>
-      <span className="text-xl font-black lowercase tracking-tight">umba</span>
-    </div>
-  )
-}
-
 function AnnexTech() {
   return (
     <div className="flex items-center gap-2">
-      <svg viewBox="0 0 28 28" className="size-7" aria-hidden>
-        <rect width="28" height="28" rx="7" fill="#C1121F" />
-        <path d="M7 21 14 7l7 14h-3.4L14 13.6 10.4 21Z" fill="#fff" />
-      </svg>
+      <img src="/brand/annex-logo-96.png" alt="" aria-hidden className="size-7 rounded-md" />
       <span className="leading-none">
-        <span className="block text-[15px] font-bold tracking-tight">Annex</span>
-        <span className="block text-[9px] font-semibold uppercase tracking-[0.2em] opacity-70">Technologies</span>
+        <span className="block text-[15px] font-extrabold tracking-tight text-primary">ANNEX</span>
+        <span className="block text-[8px] font-semibold uppercase tracking-[0.18em]">Technologies Limited</span>
       </span>
     </div>
   )
@@ -72,7 +57,6 @@ function DemoMfg() {
 }
 
 const logos = [
-  { name: 'Umba', el: <Umba /> },
   { name: 'Annex Technologies', el: <AnnexTech /> },
   { name: 'CHQI', el: <Chqi /> },
   { name: 'ACK Christ Church', el: <AckChurch /> },
@@ -81,7 +65,7 @@ const logos = [
 
 export function TrustedLogos() {
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
       {logos.map((l, i) => (
         <motion.div
           key={l.name}
@@ -90,7 +74,7 @@ export function TrustedLogos() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ delay: i * 0.07 }}
-          className="group flex h-20 items-center justify-center rounded-xl border bg-card/60 px-3 text-muted-foreground grayscale opacity-75 transition hover:text-foreground hover:opacity-100 hover:grayscale-0 hover:shadow-md last:col-span-2 sm:last:col-span-1"
+          className="group flex h-20 items-center justify-center rounded-xl border bg-card/60 px-3 text-muted-foreground grayscale opacity-75 transition hover:text-foreground hover:opacity-100 hover:grayscale-0 hover:shadow-md"
         >
           {l.el}
         </motion.div>

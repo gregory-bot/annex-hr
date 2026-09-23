@@ -241,8 +241,9 @@ export function PoliciesSettings() {
 /* ------------------------------ Invite users ----------------------------- */
 
 export function InviteUsers() {
-  const { departments, workspace } = useWorkspace()
-  const domain = workspace.slug === 'annex' ? 'annextech.co.ke' : `${workspace.slug}.com`
+  const { departments, workspace, employees } = useWorkspace()
+  // Derive the company's email domain from an existing employee address.
+  const domain = employees[0]?.email.split('@')[1] ?? `${workspace.slug}.com`
   const [invites, setInvites] = useState<PendingInvite[]>(() => [
     { id: 'seed-1', email: `mercy.chebet@${domain}`, departmentId: departments[0]!.id, role: 'employee', sent: '2026-09-21' },
     { id: 'seed-2', email: `ivan.kilonzo@${domain}`, departmentId: departments[1 % departments.length]!.id, role: 'consultant', sent: '2026-09-19' },

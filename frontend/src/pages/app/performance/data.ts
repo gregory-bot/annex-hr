@@ -44,45 +44,44 @@ export interface Objective {
 type Tpl = { title: string; dept?: RegExp; confidence: Objective['confidence']; krs: KeyResult[] }
 
 const OKR_TEMPLATES: Record<string, Tpl[]> = {
-  'ws-umba': [
+  'ws-demo': [
     {
-      title: 'Scale digital lending across Kenya and Nigeria',
-      dept: /Credit/,
+      title: 'Hit record output without compromising safety',
+      dept: /Production/,
       confidence: 'High',
       krs: [
-        { title: 'Disburse KES 1.2B in loans in Q3', progress: 82, current: 'KES 984M', target: 'KES 1.2B' },
-        { title: 'Keep 30-day PAR below 4.5%', progress: 90, current: '4.1%', target: '< 4.5%' },
-        { title: 'Launch salary-advance product in Lagos', progress: 60, current: 'Beta · 1,200 users', target: 'GA' },
+        { title: 'Raise line OEE to 78%', progress: 84, current: '74%', target: '78%' },
+        { title: 'Zero lost-time incidents this quarter', progress: 100, current: '0', target: '0' },
+        { title: 'Cut changeover time to 25 minutes', progress: 62, current: '31 min', target: '25 min' },
       ],
     },
     {
-      title: 'Ship Credit Engine v3 with real-time scoring',
-      dept: /Engineering/,
+      title: 'Ship right-first-time to every customer',
+      dept: /Quality/,
       confidence: 'Medium',
       krs: [
-        { title: 'P95 scoring latency under 300 ms', progress: 70, current: '410 ms', target: '300 ms' },
-        { title: 'Migrate 100% of decisions to v3', progress: 45, current: '45%', target: '100%' },
-        { title: 'Zero Sev-1 incidents during rollout', progress: 100, current: '0', target: '0' },
+        { title: 'Defect rate below 0.8%', progress: 70, current: '1.1%', target: '< 0.8%' },
+        { title: 'Pass ISO 9001 surveillance audit', progress: 90, current: 'Pre-audit done', target: 'Certified' },
+        { title: 'On-time delivery at 96%', progress: 88, current: '94%', target: '96%' },
       ],
     },
     {
-      title: 'Delight customers at every touchpoint',
-      dept: /Customer/,
+      title: 'Build a resilient supply chain',
+      dept: /Supply/,
+      confidence: 'Medium',
+      krs: [
+        { title: 'Dual-source 80% of critical inputs', progress: 55, current: '44%', target: '80%' },
+        { title: 'Inventory turns to 9×', progress: 72, current: '7.8×', target: '9×' },
+        { title: 'Supplier lead time under 21 days', progress: 64, current: '26 days', target: '21 days' },
+      ],
+    },
+    {
+      title: 'Make Demo Manufacturing a great place to build a career',
       confidence: 'High',
       krs: [
-        { title: 'Raise app store rating to 4.6', progress: 85, current: '4.5', target: '4.6' },
-        { title: 'First response under 2 hours', progress: 100, current: '1.6 h', target: '2 h' },
-        { title: 'Resolve 85% of tickets in one touch', progress: 72, current: '78%', target: '85%' },
-      ],
-    },
-    {
-      title: 'Make Umba a great place to grow a career',
-      dept: /People/,
-      confidence: 'Low',
-      krs: [
-        { title: 'Engagement score ≥ 80', progress: 88, current: '78', target: '80' },
+        { title: 'Engagement score ≥ 80', progress: 86, current: '77', target: '80' },
         { title: '24 training hours per employee', progress: 58, current: '14 h', target: '24 h' },
-        { title: 'Regretted attrition below 8%', progress: 50, current: '9.2%', target: '< 8%' },
+        { title: 'Promote 20% of supervisors from within', progress: 75, current: '15%', target: '20%' },
       ],
     },
   ],
@@ -92,7 +91,7 @@ const OKR_TEMPLATES: Record<string, Tpl[]> = {
       dept: /Delivery/,
       confidence: 'Medium',
       krs: [
-        { title: 'KCB Mobile Revamp go-live by 31 Oct', progress: 74, current: 'Sprint 9 of 12', target: 'Go-live' },
+        { title: 'Retail Bank Data Platform go-live by 31 Oct', progress: 74, current: 'Sprint 9 of 12', target: 'Go-live' },
         { title: 'Client CSAT ≥ 4.5 across accounts', progress: 92, current: '4.4', target: '4.5' },
         { title: 'Keep billable utilisation at 78%', progress: 81, current: '74%', target: '78%' },
       ],
@@ -152,7 +151,7 @@ const OKR_TEMPLATES: Record<string, Tpl[]> = {
 }
 
 export function buildObjectives(workspaceId: string, departments: Department[], employees: Employee[]): Objective[] {
-  const tpls = OKR_TEMPLATES[workspaceId] ?? OKR_TEMPLATES['ws-umba']!
+  const tpls = OKR_TEMPLATES[workspaceId] ?? OKR_TEMPLATES['ws-annex']!
   return tpls.map((t, i) => {
     const dept = departments.find((d) => t.dept?.test(d.name))
     return {

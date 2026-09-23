@@ -63,7 +63,7 @@ export function WorkspaceInput({ id, value, onChange, invalid }: { id: string; v
         id={id}
         value={value}
         onChange={(e) => onChange(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
-        placeholder="umba"
+        placeholder="annex"
         autoComplete="organization"
         autoCapitalize="none"
         spellCheck={false}

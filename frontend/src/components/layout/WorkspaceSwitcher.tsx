@@ -5,7 +5,9 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { useAuth } from '@/context/auth'
 import { cn } from '@/lib/utils'
 
-export function WorkspaceBadge({ letter, className }: { letter: string; className?: string }) {
+export function WorkspaceBadge({ letter, slug, className }: { letter: string; slug?: string; className?: string }) {
+  // Annex's own workspace carries the unified Annex mark.
+  if (slug === 'annex') return <img src="/brand/annex-logo-96.png" alt="" aria-hidden className={cn('size-8 shrink-0 rounded-lg', className)} />
   return <div className={cn('flex size-8 shrink-0 items-center justify-center rounded-lg bg-[#111827] text-sm font-bold text-white dark:bg-white dark:text-[#111827]', className)}>{letter}</div>
 }
 
@@ -17,7 +19,7 @@ export function WorkspaceSwitcher({ collapsed }: { collapsed?: boolean }) {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button className={cn('flex w-full items-center gap-2.5 rounded-lg border bg-card p-1.5 text-left transition hover:bg-muted', collapsed && 'justify-center border-transparent bg-transparent p-0')}>
-          <WorkspaceBadge letter={workspace.logoText} />
+          <WorkspaceBadge letter={workspace.logoText} slug={workspace.slug} />
           {!collapsed && (
             <>
               <div className="min-w-0 flex-1">
@@ -45,7 +47,7 @@ export function WorkspaceSwitcher({ collapsed }: { collapsed?: boolean }) {
                 .catch((err: Error) => toast.error(err.message, { id }))
             }}
           >
-            <WorkspaceBadge letter={w.logoText} className="size-7 text-xs" />
+            <WorkspaceBadge letter={w.logoText} slug={w.slug} className="size-7 text-xs" />
             <div className="min-w-0 flex-1">
               <div className="truncate font-medium text-foreground">{w.name}</div>
               <div className="truncate text-[11px] text-muted-foreground">{w.domain}</div>

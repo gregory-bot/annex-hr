@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils'
 
 const nodes: { label: string; sub: string; icon: LucideIcon }[] = [
   { label: 'Company', sub: 'Registered & verified', icon: Building },
-  { label: 'Workspace', sub: 'umba.annexhr.com', icon: LayoutDashboard },
+  { label: 'Workspace', sub: 'annex.annexhr.com', icon: LayoutDashboard },
   { label: 'Departments', sub: 'Structure & budgets', icon: Layers },
   { label: 'Managers', sub: 'Approvals & reviews', icon: UserCog },
   { label: 'Employees', sub: 'Self-service portal', icon: Users },

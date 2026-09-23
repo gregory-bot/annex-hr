@@ -19,7 +19,7 @@ const headcount = [
 ]
 
 const onboarding = [
-  { name: 'Brian Otieno', role: 'Credit Analyst', pct: 82 },
+  { name: 'Brian Otieno', role: 'Data Engineer', pct: 82 },
   { name: 'Amina Hassan', role: 'Product Designer', pct: 56 },
   { name: 'Kevin Mwangi', role: 'Support Lead', pct: 31 },
 ]
@@ -68,13 +68,13 @@ export function HeroDashboard() {
           <span className="size-2.5 rounded-full bg-muted-foreground/25" />
           <span className="size-2.5 rounded-full bg-muted-foreground/25" />
           <span className="size-2.5 rounded-full bg-muted-foreground/25" />
-          <div className="ml-2 flex-1 truncate rounded-md bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">umba.annexhr.com/app</div>
+          <div className="ml-2 flex-1 truncate rounded-md bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">annex.annexhr.com/app</div>
         </div>
 
         <div className="grid grid-cols-1 gap-3 p-3 sm:p-4">
           <div className="flex items-center justify-between">
             <div>
-              <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Good morning, Wanjiku</div>
+              <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Good morning, Faith</div>
               <div className="text-sm font-semibold">People overview</div>
             </div>
             <Badge variant="success" dot>

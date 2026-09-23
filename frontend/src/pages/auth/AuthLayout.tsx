@@ -62,10 +62,10 @@ function BrandPanel({ children }: { children?: React.ReactNode }) {
               “Annex HR gave our people team back two days every payroll cycle. Leave, onboarding and compliance finally live in one place.”
             </blockquote>
             <div className="mt-6 flex items-center gap-3">
-              <PersonAvatar name="Wanjiku Kamau" className="size-10 ring-2 ring-white/40" />
+              <PersonAvatar name="Faith Njeri" className="size-10 ring-2 ring-white/40" />
               <div>
-                <div className="text-sm font-semibold">Wanjiku Kamau</div>
-                <div className="text-xs text-white/75">Head of People, Umba</div>
+                <div className="text-sm font-semibold">Faith Njeri</div>
+                <div className="text-xs text-white/75">Head of People, Annex Technologies</div>
               </div>
             </div>
           </>

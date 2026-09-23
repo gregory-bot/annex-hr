@@ -19,14 +19,14 @@ import { Field, PasswordInput, SubmitButton, WorkspaceInput } from './fields'
 
 const demoRoles: Role[] = ['company_admin', 'hr_officer', 'manager', 'employee', 'consultant', 'finance', 'ceo', 'super_admin']
 const demoWorkspaces: { id: string; label: string }[] = [
-  { id: 'umba', label: 'Umba' },
   { id: 'annex', label: 'Annex Technologies' },
+  { id: 'demo-manufacturing', label: 'Demo Manufacturing' },
 ]
 
 function DemoAccounts() {
   const { signInAs } = useAuth()
   const navigate = useNavigate()
-  const [ws, setWs] = useState('umba')
+  const [ws, setWs] = useState('annex')
   const [busy, setBusy] = useState<Role | null>(null)
 
   const go = (role: Role) => {
@@ -89,7 +89,7 @@ export default function Login() {
   const location = useLocation()
   const from = (location.state as { from?: string } | null)?.from ?? '/app'
 
-  const [slug, setSlug] = useState('umba')
+  const [slug, setSlug] = useState('annex')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [remember, setRemember] = useState(true)
@@ -166,7 +166,7 @@ export default function Login() {
                 autoComplete="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder={ws ? `you@${ws.slug === 'annex' ? 'annextech.co.ke' : `${ws.slug}.com`}` : 'you@company.com'}
+                placeholder={ws?.slug === 'annex' ? 'you@annex-technologies.com' : 'you@company.com'}
                 className={cn('pl-9', emailError && 'border-danger')}
                 aria-invalid={!!emailError || undefined}
               />

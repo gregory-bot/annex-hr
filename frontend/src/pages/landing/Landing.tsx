@@ -5,7 +5,6 @@ import { toast } from 'sonner'
 import {
   ArrowRight,
   CalendarDays,
-  Clock,
   FolderLock,
   Gauge,
   LoaderCircle,
@@ -23,6 +22,7 @@ import {
   Users,
   Wallet,
   type LucideIcon,
+  CircleCheck,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -61,13 +61,13 @@ const features: { title: string; body: string; icon: LucideIcon }[] = [
 const testimonials = [
   {
     quote: 'We replaced four spreadsheets and a shared inbox. Leave approvals that took three days now close the same morning.',
-    name: 'Wanjiku Kamau',
-    title: 'Head of People, Umba',
+    name: 'Faith Njeri',
+    title: 'Head of People, Annex Technologies',
   },
   {
     quote: 'Payroll used to eat the last week of every month. With Annex HR the statutory numbers are right the first time and finance signs off in one click.',
-    name: 'David Ochieng',
-    title: 'CEO, Annex Technologies',
+    name: 'Peter Kamande',
+    title: 'Managing Director, Demo Manufacturing Ltd',
   },
   {
     quote: 'Our consultants submit timesheets from their phones and every employee file is finally digital and audit-ready.',
@@ -168,7 +168,7 @@ function Hero({ onDemo }: { onDemo: () => void }) {
           <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
             <span className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-accent/70 px-3 py-1 text-xs font-medium text-accent-foreground">
               <Sparkles className="size-3.5" />
-              Automate Every Employee Journey.
+              HR &amp; payroll software for African companies
             </span>
           </motion.div>
           <motion.h1
@@ -177,8 +177,8 @@ function Hero({ onDemo }: { onDemo: () => void }) {
             transition={{ duration: 0.55, delay: 0.08 }}
             className="mt-5 text-balance text-4xl font-bold leading-[1.08] tracking-tight sm:text-5xl lg:text-[3.6rem]"
           >
-            HR automation built for{' '}
-            <span className="bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">modern African companies.</span>
+            Hire, pay and manage your team{' '}
+            <span className="bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">in one place.</span>
           </motion.h1>
           <motion.p
             initial={{ opacity: 0, y: 12 }}
@@ -186,7 +186,7 @@ function Hero({ onDemo }: { onDemo: () => void }) {
             transition={{ duration: 0.55, delay: 0.16 }}
             className="mx-auto mt-5 max-w-xl text-balance text-base text-muted-foreground sm:text-lg lg:mx-0"
           >
-            Manage onboarding, leave, payroll, compliance, performance, consultants, and employee lifecycle from one intelligent platform.
+            Annex HR runs onboarding, leave, payroll and performance for you — so your HR team spends less time on paperwork and more time on people.
           </motion.p>
           <motion.div
             initial={{ opacity: 0, y: 12 }}
@@ -207,11 +207,13 @@ function Hero({ onDemo }: { onDemo: () => void }) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.4 }}
-            className="mt-6 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs text-muted-foreground lg:justify-start"
+            className="mt-6 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-[13px] text-muted-foreground lg:justify-start"
           >
-            <span className="inline-flex items-center gap-1.5"><ShieldCheck className="size-3.5 text-primary" /> Data Protection Act 2019 ready</span>
-            <span className="inline-flex items-center gap-1.5"><Clock className="size-3.5 text-primary" /> Live in under a day</span>
-            <span className="inline-flex items-center gap-1.5"><Plug className="size-3.5 text-primary" /> Odoo, QuickBooks & M-Pesa</span>
+            {['Payroll with PAYE, SHIF & NSSF built in', 'Leave approved in one tap', 'Every employee file in one place'].map((t) => (
+              <span key={t} className="inline-flex items-center gap-1.5 font-medium">
+                <CircleCheck className="size-4 text-primary" /> {t}
+              </span>
+            ))}
           </motion.div>
         </div>
         <HeroDashboard />
@@ -387,7 +389,7 @@ function Footer({ onDemo }: { onDemo: () => void }) {
       <div className="mx-auto grid grid-cols-1 max-w-7xl gap-10 px-4 py-12 sm:px-6 md:grid-cols-5">
         <div className="md:col-span-2">
           <Logo />
-          <p className="mt-4 max-w-xs text-sm text-muted-foreground">Automate Every Employee Journey. HR, payroll and compliance for modern African companies.</p>
+          <p className="mt-4 max-w-xs text-sm text-muted-foreground">HR and payroll software for African companies. Automate every employee journey — from first day to final pay.</p>
           <Button className="mt-5" variant="outline" onClick={onDemo}>
             Book Demo
           </Button>
@@ -410,7 +412,7 @@ function Footer({ onDemo }: { onDemo: () => void }) {
       <div className="border-t">
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-2 px-4 py-6 text-xs text-muted-foreground sm:flex-row sm:px-6">
           <span>© 2026 Annex HR. All rights reserved.</span>
-          <span>Nairobi · Lagos · Kigali</span>
+          <span>Nairobi · Kigali · Kampala</span>
         </div>
       </div>
     </footer>

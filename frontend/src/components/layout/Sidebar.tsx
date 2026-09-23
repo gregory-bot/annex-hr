@@ -5,7 +5,7 @@ import { Tip } from '@/components/ui/tooltip'
 import { useAuth } from '@/context/auth'
 import { navFor, type NavItem } from '@/lib/rbac'
 import { cn } from '@/lib/utils'
-import { LogoMark } from '@/components/shared/Logo'
+import { LogoMark, Wordmark } from '@/components/shared/Logo'
 import { WorkspaceSwitcher } from './WorkspaceSwitcher'
 
 const sections: NavItem['section'][] = ['Workspace', 'People Ops', 'Money & Time', 'Growth', 'Governance']
@@ -96,11 +96,7 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
     >
       <div className={cn('flex h-16 items-center gap-2 px-4', collapsed && 'justify-center px-0')}>
         <LogoMark />
-        {!collapsed && (
-          <span className="text-[17px] font-bold tracking-tight">
-            Annex<span className="text-primary"> HR</span>
-          </span>
-        )}
+        {!collapsed && <Wordmark />}
       </div>
       <div className={cn('px-3 pb-3', collapsed && 'px-2')}>
         <WorkspaceSwitcher collapsed={collapsed} />

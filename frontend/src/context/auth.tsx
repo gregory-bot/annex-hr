@@ -194,8 +194,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const register = useCallback<AuthContextValue['register']>(
     async (input) => {
       if (USE_MOCK_API) {
-        setMock({ workspaceId: 'ws-umba', role: 'company_admin', userId: personaFor('ws-umba', 'company_admin').id })
-        return { ok: true, domain: 'umba.annexhr.com' }
+        setMock({ workspaceId: 'ws-annex', role: 'company_admin', userId: personaFor('ws-annex', 'company_admin').id })
+        return { ok: true, domain: 'annex.annexhr.com' }
       }
       try {
         const payload = await api.post<SessionPayload>('/auth/register', input)
@@ -212,7 +212,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     async (token, input) => {
       if (USE_MOCK_API || token === 'demo') {
         // The /invite/demo walkthrough has no real invitation behind it.
-        return signInAs(USE_MOCK_API ? 'ws-umba' : 'umba', 'employee')
+        return signInAs(USE_MOCK_API ? 'ws-annex' : 'annex', 'employee')
       }
       return run(() => api.post<SessionPayload>(`/invitations/${encodeURIComponent(token)}/accept`, input))
     },

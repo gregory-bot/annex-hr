@@ -47,36 +47,36 @@ const addDays = (date: string, days: number) => {
 
 export const workspaces: Workspace[] = [
   {
-    id: 'ws-umba',
-    slug: 'umba',
-    name: 'Umba',
-    industry: 'Financial Services',
-    country: 'Kenya',
-    size: '51–200',
-    domain: 'umba.annexhr.com',
-    logoText: 'U',
-    plan: 'Enterprise',
-    founded: 2018,
-    offices: [
-      { city: 'Nairobi', country: 'Kenya', address: 'The Mirage, Westlands', headcount: 38 },
-      { city: 'Lagos', country: 'Nigeria', address: 'Victoria Island', headcount: 9 },
-      { city: 'Kampala', country: 'Uganda', address: 'Kololo', headcount: 5 },
-    ],
-  },
-  {
     id: 'ws-annex',
     slug: 'annex',
     name: 'Annex Technologies',
-    industry: 'Software & IT Services',
+    industry: 'Data & Software Engineering',
     country: 'Kenya',
-    size: '11–50',
+    size: '51–200',
     domain: 'annex.annexhr.com',
     logoText: 'A',
-    plan: 'Growth',
+    plan: 'Enterprise',
     founded: 2020,
     offices: [
-      { city: 'Nairobi', country: 'Kenya', address: 'Kilimani, Argwings Kodhek Rd', headcount: 26 },
-      { city: 'Kigali', country: 'Rwanda', address: 'Kigali Heights', headcount: 6 },
+      { city: 'Nairobi', country: 'Kenya', address: 'Kilimani, Argwings Kodhek Rd', headcount: 36 },
+      { city: 'Kigali', country: 'Rwanda', address: 'Kigali Heights', headcount: 8 },
+      { city: 'Kampala', country: 'Uganda', address: 'Kololo', headcount: 4 },
+    ],
+  },
+  {
+    id: 'ws-demo',
+    slug: 'demo-manufacturing',
+    name: 'Demo Manufacturing Ltd',
+    industry: 'Manufacturing',
+    country: 'Kenya',
+    size: '11–50',
+    domain: 'demo-manufacturing.annexhr.com',
+    logoText: 'D',
+    plan: 'Growth',
+    founded: 2011,
+    offices: [
+      { city: 'Athi River', country: 'Kenya', address: 'Export Processing Zone, Plot 14', headcount: 28 },
+      { city: 'Mombasa', country: 'Kenya', address: 'Changamwe Industrial Area', headcount: 6 },
     ],
   },
   {
@@ -95,23 +95,23 @@ export const workspaces: Workspace[] = [
 ]
 
 const deptTemplates: Record<string, { name: string; color: string }[]> = {
-  'ws-umba': [
-    { name: 'Engineering', color: '#C1121F' },
-    { name: 'Product', color: '#E63946' },
-    { name: 'Credit & Risk', color: '#7F1D1D' },
-    { name: 'Finance', color: '#374151' },
-    { name: 'Operations', color: '#F4A3A8' },
-    { name: 'Customer Success', color: '#9CA3AF' },
-    { name: 'People & Culture', color: '#B91C1C' },
-    { name: 'Growth & Marketing', color: '#6B7280' },
-  ],
   'ws-annex': [
-    { name: 'Engineering', color: '#C1121F' },
-    { name: 'Design', color: '#E63946' },
-    { name: 'Delivery', color: '#7F1D1D' },
-    { name: 'Sales', color: '#374151' },
-    { name: 'Finance & Admin', color: '#F4A3A8' },
-    { name: 'People', color: '#9CA3AF' },
+    { name: 'Data Engineering', color: '#C1121F' },
+    { name: 'Data Science & Analytics', color: '#E63946' },
+    { name: 'Software Engineering', color: '#7F1D1D' },
+    { name: 'Product & Design', color: '#374151' },
+    { name: 'Delivery', color: '#F4A3A8' },
+    { name: 'Sales & Partnerships', color: '#9CA3AF' },
+    { name: 'Finance & Admin', color: '#B91C1C' },
+    { name: 'People & Culture', color: '#6B7280' },
+  ],
+  'ws-demo': [
+    { name: 'Production', color: '#C1121F' },
+    { name: 'Quality Assurance', color: '#E63946' },
+    { name: 'Supply Chain', color: '#7F1D1D' },
+    { name: 'Maintenance', color: '#374151' },
+    { name: 'Finance', color: '#F4A3A8' },
+    { name: 'People & Culture', color: '#9CA3AF' },
   ],
   'ws-chqi': [
     { name: 'Clinical', color: '#C1121F' },
@@ -125,62 +125,62 @@ const firstM = ['Kamau', 'Otieno', 'Kipchoge', 'Mwangi', 'Omondi', 'Brian', 'Kev
 const lasts = ['Mwangi', 'Odhiambo', 'Kariuki', 'Wanjala', 'Njoroge', 'Kiprotich', 'Otieno', 'Ndungu', 'Mutai', 'Okafor', 'Adeyemi', 'Mohamed', 'Chebet', 'Kimani', 'Muthoni', 'Ouma', 'Wekesa', 'Nyambura', 'Onyango', 'Barasa', 'Kiplagat', 'Nwosu', 'Ali', 'Kilonzo', 'Gitau', 'Musyoka', 'Achola', 'Mugo']
 
 const titlesByDept: Record<string, string[]> = {
-  Engineering: ['Senior Software Engineer', 'Software Engineer', 'Backend Engineer', 'Frontend Engineer', 'DevOps Engineer', 'QA Engineer', 'Mobile Engineer'],
-  Product: ['Product Manager', 'Product Analyst', 'Product Designer'],
-  'Credit & Risk': ['Credit Analyst', 'Risk Analyst', 'Fraud Specialist', 'Data Scientist'],
-  Finance: ['Financial Accountant', 'Payroll Specialist', 'Treasury Analyst'],
-  'Finance & Admin': ['Accountant', 'Office Administrator'],
-  Operations: ['Operations Associate', 'Collections Officer', 'Operations Analyst'],
-  'Customer Success': ['Customer Support Specialist', 'Customer Success Associate', 'Support Team Lead'],
-  'People & Culture': ['HR Officer', 'Talent Partner', 'HR Business Partner'],
-  People: ['HR Officer', 'Talent Partner'],
-  'Growth & Marketing': ['Growth Marketer', 'Content Strategist', 'Brand Designer'],
-  Design: ['Product Designer', 'UX Researcher', 'Visual Designer'],
+  'Data Engineering': ['Senior Data Engineer', 'Data Engineer', 'Analytics Engineer', 'Data Platform Engineer', 'DataOps Engineer'],
+  'Data Science & Analytics': ['Data Scientist', 'Senior Data Analyst', 'Data Analyst', 'Machine Learning Engineer', 'BI Developer'],
+  'Software Engineering': ['Senior Software Engineer', 'Backend Engineer', 'Frontend Engineer', 'DevOps Engineer', 'QA Engineer'],
+  'Product & Design': ['Product Manager', 'Product Designer', 'UX Researcher'],
   Delivery: ['Project Manager', 'Scrum Master', 'Business Analyst', 'Solutions Consultant'],
-  Sales: ['Account Executive', 'Sales Development Rep', 'Partnerships Lead'],
+  'Sales & Partnerships': ['Account Executive', 'Partnerships Manager', 'Pre-sales Engineer'],
+  'Finance & Admin': ['Accountant', 'Payroll Specialist', 'Office Administrator'],
+  'People & Culture': ['Talent Partner', 'HR Business Partner', 'People Operations Associate'],
+  Production: ['Production Supervisor', 'Machine Operator', 'Line Technician', 'Production Planner'],
+  'Quality Assurance': ['QA Inspector', 'Quality Engineer', 'Lab Technician'],
+  'Supply Chain': ['Procurement Officer', 'Logistics Coordinator', 'Stores Clerk'],
+  Maintenance: ['Maintenance Technician', 'Electrical Technician', 'Mechanical Fitter'],
+  Finance: ['Financial Accountant', 'Payroll Specialist', 'Credit Controller'],
   Clinical: ['Clinical Officer', 'Nurse', 'Pharmacist'],
   Research: ['Research Associate', 'Biostatistician'],
   Administration: ['Administrator', 'Accountant'],
 }
 
 const leadTitle: Record<string, string> = {
-  Engineering: 'Head of Engineering',
-  Product: 'Head of Product',
-  'Credit & Risk': 'Head of Credit',
-  Finance: 'Finance Director',
-  'Finance & Admin': 'Finance Manager',
-  Operations: 'Head of Operations',
-  'Customer Success': 'Customer Success Lead',
-  'People & Culture': 'Head of People',
-  People: 'People Lead',
-  'Growth & Marketing': 'Head of Growth',
-  Design: 'Design Lead',
+  'Data Engineering': 'Head of Data Engineering',
+  'Data Science & Analytics': 'Head of Data Science',
+  'Software Engineering': 'Head of Engineering',
+  'Product & Design': 'Head of Product',
   Delivery: 'Head of Delivery',
-  Sales: 'Head of Sales',
+  'Sales & Partnerships': 'Head of Sales',
+  'Finance & Admin': 'Finance Manager',
+  'People & Culture': 'Head of People',
+  Production: 'Production Manager',
+  'Quality Assurance': 'Quality Manager',
+  'Supply Chain': 'Supply Chain Manager',
+  Maintenance: 'Maintenance Manager',
+  Finance: 'Finance Manager',
   Clinical: 'Medical Director',
   Research: 'Research Lead',
   Administration: 'Admin Manager',
 }
 
 const locationsByWs: Record<string, string[]> = {
-  'ws-umba': ['Nairobi, KE', 'Nairobi, KE', 'Nairobi, KE', 'Lagos, NG', 'Kampala, UG'],
-  'ws-annex': ['Nairobi, KE', 'Nairobi, KE', 'Nairobi, KE', 'Kigali, RW'],
+  'ws-annex': ['Nairobi, KE', 'Nairobi, KE', 'Nairobi, KE', 'Kigali, RW', 'Kampala, UG'],
+  'ws-demo': ['Athi River, KE', 'Athi River, KE', 'Athi River, KE', 'Mombasa, KE'],
   'ws-chqi': ['Nairobi, KE'],
 }
 
 /** Named leadership per workspace so logins and approvals feel real. */
 const leadership: Record<string, { name: string; gender: 'Female' | 'Male'; title: string; role: Role; dept?: string }[]> = {
-  'ws-umba': [
-    { name: 'Joseph Kariuki', gender: 'Male', title: 'Chief Executive Officer', role: 'ceo' },
-    { name: 'Wanjiku Kamau', gender: 'Female', title: 'Head of People', role: 'company_admin', dept: 'People & Culture' },
-    { name: 'Kevin Ndungu', gender: 'Male', title: 'Head of Engineering', role: 'manager', dept: 'Engineering' },
-    { name: 'Amina Hassan', gender: 'Female', title: 'Finance Director', role: 'finance', dept: 'Finance' },
-  ],
   'ws-annex': [
     { name: 'David Mutua', gender: 'Male', title: 'Chief Executive Officer', role: 'ceo' },
-    { name: 'Faith Njeri', gender: 'Female', title: 'People Lead', role: 'company_admin', dept: 'People' },
-    { name: 'Brian Otieno', gender: 'Male', title: 'Head of Engineering', role: 'manager', dept: 'Engineering' },
+    { name: 'Faith Njeri', gender: 'Female', title: 'Head of People', role: 'company_admin', dept: 'People & Culture' },
+    { name: 'Brian Otieno', gender: 'Male', title: 'Head of Data Engineering', role: 'manager', dept: 'Data Engineering' },
     { name: 'Grace Achieng', gender: 'Female', title: 'Finance Manager', role: 'finance', dept: 'Finance & Admin' },
+  ],
+  'ws-demo': [
+    { name: 'Peter Kamande', gender: 'Male', title: 'Managing Director', role: 'ceo' },
+    { name: 'Mercy Wanjiru', gender: 'Female', title: 'Head of People', role: 'company_admin', dept: 'People & Culture' },
+    { name: 'Joseph Mwangi', gender: 'Male', title: 'Production Manager', role: 'manager', dept: 'Production' },
+    { name: 'Halima Yusuf', gender: 'Female', title: 'Finance Manager', role: 'finance', dept: 'Finance' },
   ],
   'ws-chqi': [
     { name: 'Esther Wairimu', gender: 'Female', title: 'Executive Director', role: 'ceo' },
@@ -188,7 +188,7 @@ const leadership: Record<string, { name: string; gender: 'Female' | 'Male'; titl
   ],
 }
 
-const sizes: Record<string, number> = { 'ws-umba': 52, 'ws-annex': 32, 'ws-chqi': 18 }
+const sizes: Record<string, number> = { 'ws-annex': 48, 'ws-demo': 34, 'ws-chqi': 18 }
 
 function slugEmail(name: string, domain: string) {
   return name.toLowerCase().replace(/[^a-z ]/g, '').split(' ').join('.') + '@' + domain
@@ -196,7 +196,7 @@ function slugEmail(name: string, domain: string) {
 
 function buildWorkspace(ws: Workspace, seedNo: number) {
   const rnd = mulberry32(seedNo)
-  const emailDomain = ws.slug === 'annex' ? 'annextech.co.ke' : ws.slug + '.com'
+  const emailDomain = ({ annex: 'annex-technologies.com', 'demo-manufacturing': 'demomanufacturing.co.ke' } as Record<string, string>)[ws.slug] ?? `${ws.slug}.org`
 
   const departments: Department[] = deptTemplates[ws.id]!.map((d, i) => ({
     id: `${ws.slug}-d${i + 1}`,
@@ -321,7 +321,7 @@ function buildWorkspace(ws: Workspace, seedNo: number) {
   }
 
   // Guarantee a named HR officer and a named consultant for demo logins.
-  const hrDept = departments.find((d) => /People|Admin/.test(d.name))!
+  const hrDept = departments.find((d) => /People/.test(d.name)) ?? departments.find((d) => /Admin/.test(d.name))!
   const hr = employees.find((e) => e.departmentId === hrDept.id && e.role === 'employee')
   if (hr) {
     hr.role = 'hr_officer'
@@ -334,12 +334,19 @@ function buildWorkspace(ws: Workspace, seedNo: number) {
   consultant.employmentType = 'Consultant'
   consultant.status = 'Active'
 
+  // Consultants carry a consulting title for their practice area.
+  for (const e of employees) {
+    if (e.role !== 'consultant') continue
+    const dept = departments.find((d) => d.id === e.departmentId)!.name.replace(/ &.*$/, '')
+    e.title = `${dept} Consultant`
+  }
+
   return { departments, employees }
 }
 
 const built = {
-  'ws-umba': buildWorkspace(workspaces[0]!, 20240901),
-  'ws-annex': buildWorkspace(workspaces[1]!, 20250415),
+  'ws-annex': buildWorkspace(workspaces[0]!, 20250415),
+  'ws-demo': buildWorkspace(workspaces[1]!, 20240901),
   'ws-chqi': buildWorkspace(workspaces[2]!, 20230707),
 }
 
@@ -417,7 +424,7 @@ function buildDerived(wsId: WorkspaceId, seedNo: number): WorkspaceData {
     }
   })
 
-  const scale = active.length / 52
+  const scale = active.length / 48
   const payrollRuns: PayrollRun[] = ['September 2026', 'August 2026', 'July 2026', 'June 2026'].map((period, i) => {
     const gross = Math.round((14_850_000 + i * -180_000) * scale)
     const paye = Math.round(gross * 0.24)
@@ -555,7 +562,12 @@ function buildDerived(wsId: WorkspaceId, seedNo: number): WorkspaceData {
     }
   })
 
-  const projects = wsId === 'ws-annex' ? ['KCB Mobile Revamp', 'Safaricom API Gateway', 'Internal Tools', 'NHIF Portal'] : ['Credit Engine v3', 'Lagos Launch', 'Data Platform', 'Collections App']
+  const projects =
+    wsId === 'ws-annex'
+      ? ['Retail Bank Data Platform', 'Telco Analytics Lakehouse', 'Claims Fraud Model', 'Internal Tools']
+      : wsId === 'ws-demo'
+        ? ['Plant ERP Rollout', 'Warehouse Automation', 'Line 3 Upgrade', 'Internal Tools']
+        : ['Patient Records Migration', 'Research Data Portal', 'Clinic Scheduling', 'Internal Tools']
   const consultants = employees.filter((e) => e.employmentType === 'Consultant' || e.role === 'consultant')
   const timesheets: Timesheet[] = consultants.flatMap((c, ci) =>
     ['2026-09-21', '2026-09-14', '2026-09-07'].map((week, wi) => ({
@@ -715,8 +727,8 @@ function buildDerived(wsId: WorkspaceId, seedNo: number): WorkspaceData {
 }
 
 export const workspaceData: Record<WorkspaceId, WorkspaceData> = {
-  'ws-umba': buildDerived('ws-umba', 11),
   'ws-annex': buildDerived('ws-annex', 22),
+  'ws-demo': buildDerived('ws-demo', 11),
   'ws-chqi': buildDerived('ws-chqi', 33),
 }
 
