@@ -20,6 +20,7 @@ from pydantic import BaseModel, BeforeValidator, EmailStr, Field
 
 from ..audit import audit
 from ..config import settings
+from ..demo import is_demo_workspace, require_demo_session
 from ..db import insert_many, iso, query, query_one, tx
 from ..email import templates
 from ..email.service import send_email
@@ -30,6 +31,7 @@ from ..security import (
     AuthContext,
     clear_session_cookie,
     hash_password,
+    optional_auth,
     rate_limit,
     require_auth,
     set_session_cookie,
@@ -92,7 +94,9 @@ def session_payload(ctx: AuthContext) -> dict[str, Any]:
     workspace = get_workspace(ctx.workspaceId)
     if not employee or not workspace:
         raise unauthorized("Account no longer exists")
-    return {"user": to_employee(employee), "role": ctx.role, "workspace": workspace, "demo": bool(ctx.demo), "demoEnabled": settings.ENABLE_DEMO_LOGIN}
+    # `demo` is true only for demo sessions in demo workspaces — the UI shows "View as" only then.
+    demo_session = bool(ctx.demo) and settings.ENABLE_DEMO_LOGIN and is_demo_workspace(ctx.workspaceId)
+    return {"user": to_employee(employee), "role": ctx.role, "workspace": workspace, "demo": demo_session, "demoEnabled": settings.ENABLE_DEMO_LOGIN}
 
 
 def start_session(ctx: AuthContext, status_code: int = 200) -> JSONResponse:
@@ -196,8 +200,8 @@ def _create_workspace(db, p: dict[str, Any]) -> AuthContext:
     insert_many(db, "ticket_teams", [{"workspace_id": W, "key": t["key"], "name": t["name"], "color": t["color"], "position": i} for i, t in enumerate(DEFAULT_TICKET_TEAMS)])
     insert_many(db, "metric_series", [{"workspace_id": W, "metric": m, "data": "[]"} for m in template["trends"]])
     query(
-        "INSERT INTO notifications (workspace_id, type, title, body, href) VALUES ($1, 'system', $2, 'Next: add departments and invite your team.', '/app/people?invite=1')",
-        [W, f"Welcome to Annex HR — {p['companyName']} is ready"],
+        "INSERT INTO notifications (workspace_id, recipient_id, type, title, body, href) VALUES ($1, $2, 'system', $3, 'Next: add departments and invite your team.', '/app/people?invite=1')",
+        [W, emp["id"], f"Welcome to Annex HR — {p['companyName']} is ready"],  # type: ignore[index]
         db,
     )
     return AuthContext(userId=user["id"], employeeId=emp["id"], workspaceId=W, role="company_admin")  # type: ignore[index]
@@ -359,8 +363,9 @@ def demo(body: dict = Body(default={})):
     require_demo()
     b: DemoBody = parse(DemoBody, body)
     ws = query_one("SELECT id FROM workspaces WHERE slug = $1 OR id = $1", [b.workspace])
-    if not ws:
-        raise not_found("Workspace")
+    # Demo sign-in only opens the seeded demo workspaces — never a real company.
+    if not ws or not is_demo_workspace(ws["id"]):
+        raise not_found("Demo workspace")
     persona = persona_for(ws["id"], b.role)
     return start_session(AuthContext(userId=persona["user_id"], employeeId=persona["employee_id"], workspaceId=ws["id"], role=b.role, demo=True))
 
@@ -371,7 +376,7 @@ class SwitchRoleBody(BaseModel):
 
 @router.post("/auth/switch-role")
 def switch_role(body: dict = Body(default={}), auth: AuthContext = Depends(require_auth)):
-    require_demo()
+    require_demo_session(auth)
     b: SwitchRoleBody = parse(SwitchRoleBody, body)
     persona = persona_for(auth.workspaceId, b.role)
     return start_session(AuthContext(userId=persona["user_id"], employeeId=persona["employee_id"], workspaceId=auth.workspaceId, role=b.role, demo=True))
@@ -383,8 +388,8 @@ class SwitchWorkspaceBody(BaseModel):
 
 @router.post("/auth/switch-workspace")
 def switch_workspace(body: dict = Body(default={}), auth: AuthContext = Depends(require_auth)):
-    require_demo()
     b: SwitchWorkspaceBody = parse(SwitchWorkspaceBody, body)
+    require_demo_session(auth, b.workspaceId)
     persona = persona_for(b.workspaceId, auth.role)
     return start_session(AuthContext(userId=persona["user_id"], employeeId=persona["employee_id"], workspaceId=b.workspaceId, role=auth.role, demo=True))
 
@@ -399,6 +404,18 @@ def config():
 @router.get("/auth/me")
 def me(auth: AuthContext = Depends(require_auth)):
     return session_payload(auth)
+
+
+@router.get("/auth/session")
+def current_session(request: Request):
+    """Like /auth/me but returns {"session": null} when signed out, instead of a 401."""
+    ctx = optional_auth(request)
+    if not ctx:
+        return {"session": None}
+    try:
+        return {"session": session_payload(ctx)}
+    except HttpError:
+        return {"session": None}
 
 
 @router.post("/auth/logout")
@@ -472,11 +489,39 @@ class InviteBody(BaseModel):
     invites: list[InviteItem] = Field(min_length=1, max_length=100)
 
 
+INVITE_ADMINS = ("super_admin", "company_admin", "hr_officer")
+
+
+def _invite_out(r: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "id": r["id"],
+        "email": r["email"],
+        "role": r["role"],
+        "departmentId": r.get("department_id"),
+        "status": r["status"],
+        "expiresAt": iso(r["expires_at"]),
+        "createdAt": iso(r["created_at"]),
+    }
+
+
+def _invite_context(workspace_id: str, employee_id: str) -> dict[str, Any]:
+    return query_one(
+        "SELECT w.name AS company, e.name AS inviter FROM workspaces w LEFT JOIN employees e ON e.id = $2 WHERE w.id = $1",
+        [workspace_id, employee_id],
+    ) or {"company": "your company", "inviter": None}
+
+
 @router.post("/invitations")
 def create_invitations(request: Request, body: dict = Body(default={}), auth: AuthContext = Depends(require_auth)):
-    if auth.role not in ("super_admin", "company_admin", "hr_officer"):
+    if auth.role not in INVITE_ADMINS:
         raise forbidden()
     b: InviteBody = parse(InviteBody, body)
+    requested = {i.email: i for i in b.invites}
+    # People who already work here can't be invited again.
+    existing = {r["email"].lower() for r in query("SELECT email FROM employees WHERE workspace_id = $1 AND lower(email) = ANY($2)", [auth.workspaceId, list(requested)])}
+    to_invite = [i for e, i in requested.items() if e not in existing]
+    if not to_invite:
+        raise conflict("Everyone on this list is already in the workspace")
     rows = [
         {
             "workspace_id": auth.workspaceId,
@@ -486,25 +531,26 @@ def create_invitations(request: Request, body: dict = Body(default={}), auth: Au
             "token": secrets.token_urlsafe(24),
             "invited_by": auth.employeeId,
         }
-        for i in b.invites
+        for i in to_invite
     ]
     with tx() as db:
+        # A new invite replaces any earlier pending one for the same address.
+        query("UPDATE invitations SET status = 'Revoked' WHERE workspace_id = $1 AND status = 'Pending' AND email = ANY($2)", [auth.workspaceId, [r["email"] for r in rows]], db)
         insert_many(db, "invitations", rows)
+        saved = query("SELECT * FROM invitations WHERE token = ANY($1) ORDER BY created_at DESC", [[r["token"] for r in rows]], db)
     audit(request, auth, "invitations.sent", "invitation", None, {"count": len(rows)})
 
-    ctx = query_one(
-        "SELECT w.name AS company, e.name AS inviter FROM workspaces w LEFT JOIN employees e ON e.id = $2 WHERE w.id = $1",
-        [auth.workspaceId, auth.employeeId],
-    ) or {"company": "your company", "inviter": None}
+    ctx = _invite_context(auth.workspaceId, auth.employeeId)
     emailed = 0
     for r in rows:
-        if send_email(templates.invitation(r["email"], ctx["inviter"], ctx["company"], r["token"]), required=False) != "failed":
+        if send_email(templates.invitation(r["email"], ctx["inviter"], ctx["company"], r["token"]), required=False) not in ("failed",):
             emailed += 1
     return JSONResponse(
         {
             "sent": len(rows),
             "emailed": emailed,
-            "invitations": [{"email": r["email"], "role": r["role"], "token": r["token"], "link": f"/invite/{r['token']}"} for r in rows],
+            "skipped": sorted(existing),
+            "invitations": [_invite_out(r) for r in saved],
         },
         status_code=201,
     )
@@ -512,8 +558,47 @@ def create_invitations(request: Request, body: dict = Body(default={}), auth: Au
 
 @router.get("/invitations")
 def list_invitations(auth: AuthContext = Depends(require_auth)):
-    rows = query("SELECT id, email, role, status, expires_at, created_at FROM invitations WHERE workspace_id = $1 ORDER BY created_at DESC", [auth.workspaceId])
-    return [{**r, "expires_at": iso(r["expires_at"]), "created_at": iso(r["created_at"])} for r in rows]
+    if auth.role not in INVITE_ADMINS:
+        raise forbidden()
+    # Expired pending invites are reported as Expired.
+    rows = query(
+        """SELECT id, email, role, department_id, created_at, expires_at,
+                  CASE WHEN status = 'Pending' AND expires_at < now() THEN 'Expired' ELSE status END AS status
+             FROM invitations WHERE workspace_id = $1 ORDER BY created_at DESC""",
+        [auth.workspaceId],
+    )
+    return [_invite_out(r) for r in rows]
+
+
+@router.post("/invitations/{invite_id}/resend")
+def resend_invitation(invite_id: str, request: Request, auth: AuthContext = Depends(require_auth)):
+    if auth.role not in INVITE_ADMINS:
+        raise forbidden()
+    inv = query_one("SELECT * FROM invitations WHERE id = $1 AND workspace_id = $2", [invite_id, auth.workspaceId])
+    if not inv:
+        raise not_found("Invitation")
+    if inv["status"] not in ("Pending", "Expired"):
+        raise bad_request(f"This invitation has already been {inv['status'].lower()}")
+    token = secrets.token_urlsafe(24)
+    row = query_one(
+        "UPDATE invitations SET token = $2, status = 'Pending', expires_at = now() + interval '14 days', created_at = now() WHERE id = $1 RETURNING *",
+        [invite_id, token],
+    )
+    ctx = _invite_context(auth.workspaceId, auth.employeeId)
+    provider = send_email(templates.invitation(inv["email"], ctx["inviter"], ctx["company"], token))
+    audit(request, auth, "invitation.resent", "invitation", invite_id)
+    return {**_invite_out(row), "emailed": provider != "failed"}
+
+
+@router.post("/invitations/{invite_id}/revoke")
+def revoke_invitation(invite_id: str, request: Request, auth: AuthContext = Depends(require_auth)):
+    if auth.role not in INVITE_ADMINS:
+        raise forbidden()
+    row = query_one("UPDATE invitations SET status = 'Revoked' WHERE id = $1 AND workspace_id = $2 AND status = 'Pending' RETURNING *", [invite_id, auth.workspaceId])
+    if not row:
+        raise not_found("Pending invitation")
+    audit(request, auth, "invitation.revoked", "invitation", invite_id)
+    return _invite_out(row)
 
 
 def find_invitation(token: str) -> dict[str, Any]:
@@ -581,7 +666,8 @@ def accept_invitation(token: str, body: dict = Body(default={})):
         )
         query("UPDATE invitations SET status = 'Accepted', accepted_at = now() WHERE id = $1", [inv["id"]], db)
         query(
-            "INSERT INTO notifications (workspace_id, type, title, body, href) VALUES ($1, 'system', $2, 'Onboarding checklist assigned automatically.', '/app/onboarding?tab=overview')",
+            # HR-only: employees shouldn't be told who else joined.
+            "INSERT INTO notifications (workspace_id, type, title, body, href, audience) VALUES ($1, 'system', $2, 'Onboarding checklist assigned automatically.', '/app/onboarding?tab=overview', 'admins')",
             [inv["workspace_id"], f"{b.name} joined the workspace"],
             db,
         )

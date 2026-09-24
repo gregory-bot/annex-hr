@@ -3,7 +3,6 @@ import { useSearchParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { addDays } from 'date-fns'
 import { Bar, BarChart, CartesianGrid, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { AlarmClock, CalendarOff, Flame, Timer, Trophy, UserCheck } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { toast } from 'sonner'
 import { useWorkspace } from '@/context/auth'
@@ -261,10 +260,10 @@ function OrgView({
   return (
     <div className="grid grid-cols-1 gap-4">
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-        <Kpi index={0} label="Present today" value={wed.onTime + wed.late - onLeave.size} icon={UserCheck} hint={`of ${active.length} active`} />
-        <Kpi index={1} label="Late arrivals" value={wed.late} icon={AlarmClock} hint="after 08:40 grace" />
-        <Kpi index={2} label="On leave" value={onLeave.size} icon={CalendarOff} hint="approved today" />
-        <Kpi index={3} label="Overtime this week" value={overtimeTotal} format={(n) => `${Math.round(n)} h`} icon={Flame} hint="hours beyond 8 h/day" />
+        <Kpi index={0} label="Present today" value={wed.onTime + wed.late - onLeave.size} hint={`of ${active.length} active`} />
+        <Kpi index={1} label="Late arrivals" value={wed.late} hint="after 08:40 grace" />
+        <Kpi index={2} label="On leave" value={onLeave.size} hint="approved today" />
+        <Kpi index={3} label="Overtime this week" value={overtimeTotal} format={(n) => `${Math.round(n)} h`} hint="hours beyond 8 h/day" />
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
@@ -301,7 +300,7 @@ function OrgView({
             {overtime.map(({ e, hrs }, i) => (
               <li key={e.id} className="flex items-center gap-3">
                 <span className={cn('flex size-6 shrink-0 items-center justify-center rounded-full text-[11px] font-bold', i === 0 ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground')}>
-                  {i === 0 ? <Trophy className="size-3" /> : i + 1}
+                  {i + 1}
                 </span>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-baseline justify-between gap-2">
@@ -317,7 +316,7 @@ function OrgView({
           </ol>
         </Section>
 
-        <Section title="Attendance trend" description="This week by weekday" action={<Timer className="size-4 text-muted-foreground" />}>
+        <Section title="Attendance trend" description="This week by weekday">
           <Legend items={series.map((s) => ({ label: s.label, color: s.color }))} className="mb-3" />
           <ResponsiveContainer width="100%" height={260}>
             <BarChart data={trends} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>

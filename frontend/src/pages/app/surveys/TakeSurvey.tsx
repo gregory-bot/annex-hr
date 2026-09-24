@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { ArrowLeft, ArrowRight, Lock, RotateCcw, Send } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -33,9 +32,7 @@ export function TakeSurvey({ survey }: { survey: Survey }) {
           <div className="flex flex-wrap items-center justify-between gap-2">
             <Badge variant="soft">Closes {formatDate(survey.closes)}</Badge>
             {survey.anonymous && (
-              <Badge variant="muted">
-                <Lock /> Anonymous
-              </Badge>
+              <Badge variant="muted">Anonymous</Badge>
             )}
           </div>
           <h2 className="mt-3 text-lg font-semibold tracking-tight">{survey.title}</h2>
@@ -58,7 +55,7 @@ export function TakeSurvey({ survey }: { survey: Survey }) {
                     setAnswers({})
                   }}
                 >
-                  <RotateCcw /> Preview again
+                  Preview again
                 </Button>
               </motion.div>
             ) : (
@@ -71,15 +68,13 @@ export function TakeSurvey({ survey }: { survey: Survey }) {
         {!done && (
           <div className="flex items-center justify-between border-t p-4">
             <Button variant="ghost" disabled={step === 0} onClick={() => setStep(step - 1)}>
-              <ArrowLeft /> Back
+              Back
             </Button>
             {last ? (
-              <Button onClick={submit}>
-                <Send /> Submit
-              </Button>
+              <Button onClick={submit}>Submit</Button>
             ) : (
               <Button onClick={() => setStep(step + 1)} variant={answered ? 'default' : 'outline'}>
-                {answered ? 'Next' : 'Skip'} <ArrowRight />
+                {answered ? 'Next' : 'Skip'}
               </Button>
             )}
           </div>

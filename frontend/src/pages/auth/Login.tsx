@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { toast } from 'sonner'
-import { BadgeCheck, CircleAlert, Lock, Mail } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -10,7 +9,9 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { useAuth } from '@/context/auth'
 import { useWorkspaceLookup } from './useWorkspaceLookup'
+import { workspaceFromHost } from '@/lib/tenant'
 import { cn } from '@/lib/utils'
+import { apiAssetUrl } from '@/lib/branding'
 import { AuthLayout } from './AuthLayout'
 import { Field, PasswordInput, SubmitButton, WorkspaceInput } from './fields'
 
@@ -20,7 +21,9 @@ export default function Login() {
   const location = useLocation()
   const from = (location.state as { from?: string } | null)?.from ?? '/app'
 
-  const [slug, setSlug] = useState('')
+  // On <slug>.annexhr.com (or <slug>.localhost) the workspace comes from the address.
+  const hostSlug = workspaceFromHost()
+  const [slug, setSlug] = useState(hostSlug ?? '')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [remember, setRemember] = useState(true)
@@ -58,13 +61,17 @@ export default function Login() {
 
         <form onSubmit={submit} noValidate className="mt-8 grid grid-cols-1 gap-4">
           <Field id="workspace" label="Company workspace" error={slugError}>
-            <WorkspaceInput id="workspace" value={slug} onChange={setSlug} invalid={!!slugError} />
+            <WorkspaceInput id="workspace" value={slug} onChange={setSlug} invalid={!!slugError} readOnly={!!hostSlug} />
           </Field>
           <AnimatePresence initial={false}>
             {ws && (
               <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
                 <div className="flex items-center gap-3 rounded-xl border bg-card p-3">
-                  <div className="flex size-9 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-secondary text-sm font-bold text-white">{ws.logoText}</div>
+                  {ws.logoUrl ? (
+                    <img src={apiAssetUrl(ws.logoUrl) ?? undefined} alt="" aria-hidden className="size-9 shrink-0 rounded-lg border bg-white object-contain" />
+                  ) : (
+                    <div className="flex size-9 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-secondary text-sm font-bold text-white">{ws.logoText}</div>
+                  )}
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-sm font-semibold">{ws.name}</div>
                     <div className="truncate text-xs text-muted-foreground">
@@ -72,7 +79,7 @@ export default function Login() {
                     </div>
                   </div>
                   <Badge variant="success">
-                    <BadgeCheck /> Verified
+                    Verified
                   </Badge>
                 </div>
               </motion.div>
@@ -80,19 +87,16 @@ export default function Login() {
           </AnimatePresence>
 
           <Field id="email" label="Work email" error={emailError}>
-            <div className="relative">
-              <Mail className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                id="email"
-                type="email"
-                autoComplete="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder={ws?.slug === 'annex' ? 'you@annex-technologies.com' : 'you@company.com'}
-                className={cn('pl-9', emailError && 'border-danger')}
-                aria-invalid={!!emailError || undefined}
-              />
-            </div>
+                        <Input
+              id="email"
+              type="email"
+              autoComplete="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder={ws?.slug === 'annex' ? 'you@annex-technologies.com' : 'you@company.com'}
+              className={cn(emailError && 'border-danger')}
+              aria-invalid={!!emailError || undefined}
+            />
           </Field>
 
           <Field
@@ -116,13 +120,13 @@ export default function Login() {
           </div>
 
           {error && (
-            <div role="alert" className="flex items-center gap-2 rounded-lg bg-danger-soft px-3 py-2 text-sm text-danger">
-              <CircleAlert className="size-4 shrink-0" /> {error}
+            <div role="alert" className="rounded-lg bg-danger-soft px-3 py-2 text-sm text-danger">
+              {error}
             </div>
           )}
 
           <SubmitButton loading={loading} loadingText="Signing in…">
-            <Lock /> Sign in
+            Sign in
           </SubmitButton>
         </form>
 

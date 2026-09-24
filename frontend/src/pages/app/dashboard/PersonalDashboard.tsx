@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
-import { ArrowRight, CalendarDays, CheckCircle2, Circle, FileText, Gauge, PartyPopper, Rocket, ScrollText, Timer } from 'lucide-react'
+import { CheckCircle2, Circle } from 'lucide-react'
 import { useWorkspace } from '@/context/auth'
 import { Section } from '@/components/shared/Section'
 import { ProgressRing } from '@/components/shared/ProgressRing'
@@ -31,9 +31,9 @@ export function PersonalDashboard() {
   const holidaySet = useMemo(() => new Set(holidays.filter((h) => h.country === workspace.country).map((h) => h.date)), [holidays, workspace.country])
   const hourStats = useHourStats(user.id, holidaySet, clock.elapsed)
   const [tasks, setTasks] = useState([
-    { id: 'policy', title: 'Acknowledge Data Protection policy v3.1', due: 'Due 30 Sep', href: '/app/compliance?tab=policies', icon: ScrollText, done: false },
-    { id: 'review', title: 'Complete Q3 self-review', due: 'Closes 10 Oct', href: '/app/performance', icon: Gauge, done: false },
-    { id: 'survey', title: 'Answer the Q3 pulse survey', due: 'Closes 30 Sep', href: '/app/surveys', icon: PartyPopper, done: false },
+    { id: 'policy', title: 'Acknowledge Data Protection policy v3.1', due: 'Due 30 Sep', href: '/app/compliance?tab=policies', done: false },
+    { id: 'review', title: 'Complete Q3 self-review', due: 'Closes 10 Oct', href: '/app/performance', done: false },
+    { id: 'survey', title: 'Answer the Q3 pulse survey', due: 'Closes 30 Sep', href: '/app/surveys', done: false },
   ])
 
   const team = useMemo(() => employees.filter((e) => e.status !== 'Exited' && e.id !== user.id && (e.departmentId === user.departmentId || e.managerId === user.managerId)), [employees, user])
@@ -70,12 +70,12 @@ export function PersonalDashboard() {
               <div className="mt-4 flex flex-wrap gap-2">
                 <Button asChild variant="white" size="sm">
                   <Link to="/app/onboarding">
-                    <Rocket /> {user.onboardingProgress < 100 ? 'Continue onboarding' : 'View onboarding'}
+                    {user.onboardingProgress < 100 ? 'Continue onboarding' : 'View onboarding'}
                   </Link>
                 </Button>
                 <Button asChild variant="ghost" size="sm" className="text-white hover:bg-white/10 hover:text-white">
                   <Link to="/app/leave">
-                    <CalendarDays /> Request leave
+                    Request leave
                   </Link>
                 </Button>
               </div>
@@ -124,7 +124,7 @@ export function PersonalDashboard() {
             action={
               <Button asChild size="sm" variant="soft">
                 <Link to="/app/timesheets">
-                  <Timer /> Open timesheet
+                  Open timesheet
                 </Link>
               </Button>
             }
@@ -165,7 +165,7 @@ export function PersonalDashboard() {
           action={
             <Button asChild size="sm" variant="ghost">
               <Link to="/app/leave">
-                Request <ArrowRight />
+                Request
               </Link>
             </Button>
           }
@@ -198,7 +198,6 @@ export function PersonalDashboard() {
                   <div className={cn('truncate text-sm font-medium', t.done && 'text-muted-foreground line-through')}>{t.title}</div>
                   <div className="text-xs text-muted-foreground">{t.due}</div>
                 </Link>
-                <t.icon className="size-4 shrink-0 text-muted-foreground" />
               </li>
             ))}
           </ul>
@@ -220,11 +219,8 @@ export function PersonalDashboard() {
               <li key={p.period}>
                 <button
                   onClick={() => toast.success(`Payslip ${p.period} downloaded`, { description: 'Password: your KRA PIN' })}
-                  className="flex w-full items-center gap-3 rounded-lg border p-2.5 text-left transition hover:bg-muted/60"
+                  className="flex w-full items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition hover:bg-muted/60"
                 >
-                  <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-accent text-primary">
-                    <FileText className="size-4" />
-                  </span>
                   <div className="min-w-0 flex-1">
                     <div className="text-sm font-medium">{p.period}</div>
                     <div className="text-xs text-muted-foreground">Net pay · PDF</div>

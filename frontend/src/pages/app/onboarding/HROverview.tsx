@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
-import { AlertTriangle, BadgeCheck, Gauge, Send, UserPlus, Workflow, Zap } from 'lucide-react'
 import { toast } from 'sonner'
 import { useWorkspace } from '@/context/auth'
 import type { Employee } from '@/data/types'
@@ -127,7 +126,7 @@ export function HROverview() {
               remind(r)
             }}
           >
-            <Send /> {reminded.has(r.emp.id) ? 'Sent' : 'Send reminder'}
+            {reminded.has(r.emp.id) ? 'Sent' : 'Send reminder'}
           </Button>
         ) : null,
     },
@@ -136,10 +135,10 @@ export function HROverview() {
   return (
     <div className="grid grid-cols-1 gap-4">
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-        <StatCard label="In onboarding" value={inOnboarding} icon={UserPlus} index={0} hint="New joiners & probation" />
-        <StatCard label="Avg completion" value={avg} format={(n) => `${Math.round(n)}%`} icon={Gauge} index={1} tone="primary" />
-        <StatCard label="Overdue tasks" value={overdueTasks} icon={AlertTriangle} index={2} tone="warning" hint="Older than 7 days" />
-        <StatCard label="Completed this month" value={completedMonth} icon={BadgeCheck} index={3} tone="success" />
+        <StatCard label="In onboarding" value={inOnboarding} index={0} hint="New joiners & probation" />
+        <StatCard label="Avg completion" value={avg} format={(n) => `${Math.round(n)}%`} index={1} tone="primary" />
+        <StatCard label="Overdue tasks" value={overdueTasks} index={2} tone="warning" hint="Older than 7 days" />
+        <StatCard label="Completed this month" value={completedMonth} index={3} tone="success" />
       </div>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
@@ -148,7 +147,7 @@ export function HROverview() {
           description={`${rows.length} people in onboarding or probation`}
           action={
             <Button size="sm" onClick={bulk}>
-              <Send /> <span className="hidden sm:inline">Bulk remind</span>
+              Bulk remind
             </Button>
           }
           className="min-w-0"
@@ -157,7 +156,7 @@ export function HROverview() {
           <DataTable rows={filtered} columns={columns} rowKey={(r) => r.emp.id} pageSize={8} />
         </Section>
 
-        <Section title="Automation rules" description="Runs automatically for every new joiner" action={<Workflow className="size-4 text-muted-foreground" />}>
+        <Section title="Automation rules" description="Runs automatically for every new joiner">
           <div className="grid grid-cols-1 gap-2">
             {rules.map((rule, i) => (
               <motion.div
@@ -167,9 +166,6 @@ export function HROverview() {
                 transition={{ delay: i * 0.04 }}
                 className="flex items-start gap-3 rounded-lg border p-3"
               >
-                <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-md bg-accent text-accent-foreground">
-                  <Zap className="size-3.5" />
-                </span>
                 <div className="min-w-0 flex-1">
                   <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{rule.trigger}</div>
                   <div className="mt-0.5 text-sm">{rule.action}</div>

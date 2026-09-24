@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { BarChart3, CalendarClock, Lock, PenLine, Plus, Send, Users } from 'lucide-react'
 import { useWorkspace } from '@/context/auth'
 import type { Survey } from '@/data/types'
 import { isAdminLike, isLeader } from '@/lib/rbac'
@@ -69,9 +68,7 @@ function SurveysPage() {
         description="Short, anonymous check-ins that tell you how people really feel — and where to act."
         actions={
           canBuild && (
-            <Button onClick={() => setBuilder(true)}>
-              <Plus /> New survey
-            </Button>
+            <Button onClick={() => setBuilder(true)}>New survey</Button>
           )
         }
       />
@@ -91,9 +88,7 @@ function SurveysPage() {
                 <div className="font-semibold">You have {live.length} open survey{live.length > 1 ? 's' : ''}</div>
                 <div className="text-sm text-muted-foreground">Takes about 2 minutes. Always anonymous.</div>
               </div>
-              <Button onClick={() => setTab('take')}>
-                <Send /> Take the Q3 Pulse
-              </Button>
+              <Button onClick={() => setTab('take')}>Take the Q3 Pulse</Button>
             </Card>
           )}
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -108,9 +103,7 @@ function SurveysPage() {
                         <div className="flex flex-wrap items-center gap-2">
                           <StatusBadge status={s.status} />
                           {s.anonymous && (
-                            <Badge variant="muted">
-                              <Lock /> Anonymous
-                            </Badge>
+                            <Badge variant="muted">Anonymous</Badge>
                           )}
                         </div>
                         <h3 className="mt-2 font-semibold leading-snug">{s.title}</h3>
@@ -118,8 +111,8 @@ function SurveysPage() {
                     </div>
                     <div className="mt-4">
                       <div className="mb-1.5 flex items-center justify-between text-xs">
-                        <span className="inline-flex items-center gap-1.5 text-muted-foreground">
-                          <Users className="size-3.5" /> {s.responses} of {s.audience} responded
+                        <span className="text-muted-foreground">
+                          {s.responses} of {s.audience} responded
                         </span>
                         <span className="font-semibold tabular">{rate}%</span>
                       </div>
@@ -140,24 +133,23 @@ function SurveysPage() {
                       </div>
                     </dl>
                     <div className="mt-auto flex flex-wrap items-center justify-between gap-2 pt-4">
-                      <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-                        <CalendarClock className="size-3.5" />
+                      <span className="text-xs text-muted-foreground">
                         {s.status === 'Live' ? (left > 0 ? `${left} days left` : 'Closes today') : s.status === 'Draft' ? 'Not yet sent' : 'Results published'}
                       </span>
                       <div className="flex gap-2">
                         {s.status === 'Live' && (
                           <Button size="sm" variant="outline" onClick={() => setTab('take')}>
-                            <Send /> Take
+                            Take
                           </Button>
                         )}
                         {canSeeResults && s.id === pulse.id && (
                           <Button size="sm" variant="soft" onClick={() => setTab('results')}>
-                            <BarChart3 /> Results
+                            Results
                           </Button>
                         )}
                         {canBuild && s.status === 'Draft' && (
                           <Button size="sm" variant="outline" onClick={() => setBuilder(true)}>
-                            <PenLine /> Edit
+                            Edit
                           </Button>
                         )}
                       </div>

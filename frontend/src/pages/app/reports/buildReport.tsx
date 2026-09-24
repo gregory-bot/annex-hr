@@ -1,26 +1,3 @@
-import type { LucideIcon } from 'lucide-react'
-import {
-  Activity,
-  AlarmClock,
-  Award,
-  BadgeCheck,
-  Briefcase,
-  CalendarDays,
-  Clock,
-  Coins,
-  Gauge,
-  Landmark,
-  LogOut,
-  Receipt,
-  ShieldCheck,
-  Sparkles,
-  TrendingDown,
-  TrendingUp,
-  UserCheck,
-  UserPlus,
-  Users,
-  Wallet,
-} from 'lucide-react'
 import type { WorkspaceData } from '@/data/seed'
 import type { Department, Employee } from '@/data/types'
 import { DataTable, type Column } from '@/components/shared/DataTable'
@@ -51,7 +28,6 @@ export interface Kpi {
   label: string
   value: number | string
   format?: (n: number) => string
-  icon: LucideIcon
   delta?: number
   deltaLabel?: string
   hint?: string
@@ -144,10 +120,10 @@ export function buildReport(tab: ReportTab, ctx: Ctx): Report {
       const growth = hcStart ? ((hcNow - hcStart) / hcStart) * 100 : 0
       return {
         kpis: [
-          { label: 'Headcount', value: hcNow, icon: Users, delta: round1(growth), deltaLabel: 'over period', tone: 'primary' },
-          { label: 'New hires', value: hires, icon: UserPlus, hint: `${hc.length} months` },
-          { label: 'Net change', value: `${hires - exits >= 0 ? '+' : ''}${hires - exits}`, icon: TrendingUp, hint: `${exits} leavers` },
-          { label: 'Non full-time', value: pct(hcNow ? (contractors / hcNow) * 100 : 0), icon: Briefcase, hint: `${contractors} contract, consultant & interns` },
+          { label: 'Headcount', value: hcNow, delta: round1(growth), deltaLabel: 'over period', tone: 'primary' },
+          { label: 'New hires', value: hires, hint: `${hc.length} months` },
+          { label: 'Net change', value: `${hires - exits >= 0 ? '+' : ''}${hires - exits}`, hint: `${exits} leavers` },
+          { label: 'Non full-time', value: pct(hcNow ? (contractors / hcNow) * 100 : 0), hint: `${contractors} contract, consultant & interns` },
         ],
         charts: [
           { title: 'Headcount over time', description: 'Active employees at month end', node: <TrendArea data={hc} xKey="month" yKey="headcount" name="Headcount" />, wide: true },
@@ -189,10 +165,10 @@ export function buildReport(tab: ReportTab, ctx: Ctx): Report {
       const reasons = ['Resignation', 'Contract End', 'Termination', 'Retirement'].map((r) => ({ label: r, value: offs.filter((o) => o.reason === r).length })).filter((r) => r.value > 0)
       return {
         kpis: [
-          { label: 'Turnover rate', value: pct(turnover), icon: TrendingDown, hint: `${hc.length}-month period`, tone: 'primary' },
-          { label: 'Annualised', value: pct(annualised), icon: Activity, hint: 'Benchmark: 12–15%' },
-          { label: 'Leavers', value: exits, icon: LogOut, hint: `avg headcount ${Math.round(avgHc)}` },
-          { label: 'Voluntary exits', value: pct(offs.length ? (voluntary / offs.length) * 100 : 0), icon: UserCheck, hint: `${offs.length} in-flight offboardings` },
+          { label: 'Turnover rate', value: pct(turnover), hint: `${hc.length}-month period`, tone: 'primary' },
+          { label: 'Annualised', value: pct(annualised), hint: 'Benchmark: 12–15%' },
+          { label: 'Leavers', value: exits, hint: `avg headcount ${Math.round(avgHc)}` },
+          { label: 'Voluntary exits', value: pct(offs.length ? (voluntary / offs.length) * 100 : 0), hint: `${offs.length} in-flight offboardings` },
         ],
         charts: [
           { title: 'Monthly turnover', description: 'Exits ÷ month-end headcount', node: <MultiLine data={monthlyTurnover} xKey="month" series={[{ key: 'turnover', label: 'Turnover' }]} valueFormatter={pct} yTickFormatter={(v) => `${v}%`} />, wide: true },
@@ -231,10 +207,10 @@ export function buildReport(tab: ReportTab, ctx: Ctx): Report {
       ].map((b) => ({ bucket: b.label, employees: employees.filter((e) => tenureYears(e) >= b.min && tenureYears(e) < b.max).length }))
       return {
         kpis: [
-          { label: 'Retention rate', value: pct(100 - turnover), icon: ShieldCheck, hint: '100 − turnover', tone: 'primary' },
-          { label: 'Annualised retention', value: pct(Math.max(0, 100 - annualised)), icon: Activity },
-          { label: 'Past first year', value: pct(hcNow ? (oneYear / hcNow) * 100 : 0), icon: BadgeCheck, hint: `${oneYear} of ${hcNow}` },
-          { label: 'Avg tenure', value: `${round1(avg(employees.map(tenureYears)))} yrs`, icon: Clock },
+          { label: 'Retention rate', value: pct(100 - turnover), hint: '100 − turnover', tone: 'primary' },
+          { label: 'Annualised retention', value: pct(Math.max(0, 100 - annualised)) },
+          { label: 'Past first year', value: pct(hcNow ? (oneYear / hcNow) * 100 : 0), hint: `${oneYear} of ${hcNow}` },
+          { label: 'Avg tenure', value: `${round1(avg(employees.map(tenureYears)))} yrs` },
         ],
         charts: [
           { title: 'Monthly retention', node: <MultiLine data={monthlyTurnover} xKey="month" series={[{ key: 'retention', label: 'Retention' }]} valueFormatter={pct} yTickFormatter={(v) => `${v}%`} />, wide: true },
@@ -267,10 +243,10 @@ export function buildReport(tab: ReportTab, ctx: Ctx): Report {
       const byType = ['Annual', 'Sick', 'Maternity', 'Paternity', 'Compassionate', 'Study'].map((t) => ({ label: t, value: reqs.filter((r) => r.type === t).reduce((s, r) => s + r.days, 0) })).filter((r) => r.value > 0)
       return {
         kpis: [
-          { label: 'Days taken', value: total, icon: CalendarDays, hint: `${hc.length} months`, tone: 'primary' },
-          { label: 'Sick-day share', value: pct(total ? (sick / total) * 100 : 0), icon: Activity },
-          { label: 'Pending requests', value: reqs.filter((r) => r.status === 'Pending').length, icon: AlarmClock, tone: 'warning' },
-          { label: 'Approval rate', value: pct(decided.length ? (approved / decided.length) * 100 : 0), icon: BadgeCheck },
+          { label: 'Days taken', value: total, hint: `${hc.length} months`, tone: 'primary' },
+          { label: 'Sick-day share', value: pct(total ? (sick / total) * 100 : 0) },
+          { label: 'Pending requests', value: reqs.filter((r) => r.status === 'Pending').length, tone: 'warning' },
+          { label: 'Approval rate', value: pct(decided.length ? (approved / decided.length) * 100 : 0) },
         ],
         charts: [
           {
@@ -318,10 +294,10 @@ export function buildReport(tab: ReportTab, ctx: Ctx): Report {
       const k = (n: number) => formatKES(n, { compact: true })
       return {
         kpis: [
-          { label: 'Gross payroll', value: k(lastGross), icon: Wallet, delta: prevGross ? round1(((lastGross - prevGross) / prevGross) * 100) : undefined, deltaLabel: 'vs last month', tone: 'primary' },
-          { label: 'Net pay', value: k(Math.round(run.net * scale)), icon: Coins, hint: run.period },
-          { label: 'Statutory deductions', value: k(Math.round(statutory * scale)), icon: Landmark, hint: 'PAYE · SHIF · NSSF · Housing' },
-          { label: 'Avg cost per head', value: k(hcNow ? Math.round((lastGross || 0) / hcNow) : 0), icon: Receipt },
+          { label: 'Gross payroll', value: k(lastGross), delta: prevGross ? round1(((lastGross - prevGross) / prevGross) * 100) : undefined, deltaLabel: 'vs last month', tone: 'primary' },
+          { label: 'Net pay', value: k(Math.round(run.net * scale)), hint: run.period },
+          { label: 'Statutory deductions', value: k(Math.round(statutory * scale)), hint: 'PAYE · SHIF · NSSF · Housing' },
+          { label: 'Avg cost per head', value: k(hcNow ? Math.round((lastGross || 0) / hcNow) : 0) },
         ],
         charts: [
           {
@@ -382,10 +358,10 @@ export function buildReport(tab: ReportTab, ctx: Ctx): Report {
       const byDept = depts.map((d) => ({ label: d.name, value: d.avgPerf })).sort((a, b) => b.value - a.value)
       return {
         kpis: [
-          { label: 'Average rating', value: `${avg(scores).toFixed(2)} / 5`, icon: Gauge, tone: 'primary' },
-          { label: 'Top performers', value: scores.filter((s) => s >= 4.5).length, icon: Award, hint: 'rated 4.5+' },
-          { label: 'Needs support', value: scores.filter((s) => s < 2.5).length, icon: AlarmClock, hint: 'rated below 2.5', tone: 'warning' },
-          { label: 'High potential', value: employees.filter((e) => e.potential === 3).length, icon: Sparkles, hint: '9-box top row' },
+          { label: 'Average rating', value: `${avg(scores).toFixed(2)} / 5`, tone: 'primary' },
+          { label: 'Top performers', value: scores.filter((s) => s >= 4.5).length, hint: 'rated 4.5+' },
+          { label: 'Needs support', value: scores.filter((s) => s < 2.5).length, hint: 'rated below 2.5', tone: 'warning' },
+          { label: 'High potential', value: employees.filter((e) => e.potential === 3).length, hint: '9-box top row' },
         ],
         charts: [
           { title: 'Rating distribution', node: <SimpleBars data={perfHistogram(scores)} xKey="bucket" yKey="employees" name="Employees" />, wide: true },
@@ -416,10 +392,10 @@ export function buildReport(tab: ReportTab, ctx: Ctx): Report {
       const funnelRows = funnel.map((f, i) => ({ ...f, conv: i === 0 ? 100 : round1((f.count / Math.max(1, funnel[i - 1]!.count)) * 100), overall: round1((f.count / applied) * 100) }))
       return {
         kpis: [
-          { label: 'Applicants', value: applied, icon: Users, tone: 'primary' },
-          { label: 'Hired', value: hired, icon: UserPlus, hint: `${pct((hired / applied) * 100)} of applicants` },
-          { label: 'Offer acceptance', value: pct((hired / offer) * 100), icon: BadgeCheck },
-          { label: 'Time to hire', value: '27 days', icon: Clock, hint: 'median, application → offer' },
+          { label: 'Applicants', value: applied, tone: 'primary' },
+          { label: 'Hired', value: hired, hint: `${pct((hired / applied) * 100)} of applicants` },
+          { label: 'Offer acceptance', value: pct((hired / offer) * 100) },
+          { label: 'Time to hire', value: '27 days', hint: 'median, application → offer' },
         ],
         charts: [
           { title: 'Hiring funnel', description: 'Conversion between stages', node: <Funnel data={funnel} /> },
@@ -455,10 +431,10 @@ export function buildReport(tab: ReportTab, ctx: Ctx): Report {
       const absents = att.reduce((s, a) => s + a.absent, 0)
       return {
         kpis: [
-          { label: 'On-time rate', value: pct((onTime / totalSlots) * 100), icon: UserCheck, tone: 'primary' },
-          { label: 'Late arrivals', value: lates, icon: AlarmClock, hint: 'this week' },
-          { label: 'Absence rate', value: pct((absents / totalSlots) * 100), icon: TrendingDown, hint: `${absents} person-days` },
-          { label: 'Avg hours / day', value: '8.2h', icon: Clock, hint: 'clocked, excluding breaks' },
+          { label: 'On-time rate', value: pct((onTime / totalSlots) * 100), tone: 'primary' },
+          { label: 'Late arrivals', value: lates, hint: 'this week' },
+          { label: 'Absence rate', value: pct((absents / totalSlots) * 100), hint: `${absents} person-days` },
+          { label: 'Avg hours / day', value: '8.2h', hint: 'clocked, excluding breaks' },
         ],
         charts: [
           {
@@ -505,10 +481,10 @@ export function buildReport(tab: ReportTab, ctx: Ctx): Report {
       const budget = depts.reduce((s, d) => s + d.budget, 0) || 1
       return {
         kpis: [
-          { label: 'Departments', value: depts.length, icon: Briefcase, tone: 'primary' },
-          { label: 'Largest team', value: largest?.name ?? '—', icon: Users, hint: largest ? `${largest.headcount} people` : undefined },
-          { label: 'Highest avg salary', value: priciest?.name ?? '—', icon: Coins, hint: priciest ? formatKES(priciest.avgSalary) : undefined },
-          { label: 'Budget utilisation', value: pct((annualPayroll / budget) * 100), icon: Landmark, hint: 'annualised payroll ÷ budget' },
+          { label: 'Departments', value: depts.length, tone: 'primary' },
+          { label: 'Largest team', value: largest?.name ?? '—', hint: largest ? `${largest.headcount} people` : undefined },
+          { label: 'Highest avg salary', value: priciest?.name ?? '—', hint: priciest ? formatKES(priciest.avgSalary) : undefined },
+          { label: 'Budget utilisation', value: pct((annualPayroll / budget) * 100), hint: 'annualised payroll ÷ budget' },
         ],
         charts: [
           { title: 'Average salary by department', node: <HorizontalBars data={[...depts].sort((a, b) => b.avgSalary - a.avgSalary).map((d) => ({ label: d.name, value: d.avgSalary }))} name="Avg salary" valueFormatter={(v) => formatKES(v, { compact: true }).replace('KES ', '')} />, wide: true },

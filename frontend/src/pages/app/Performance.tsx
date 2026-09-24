@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { CalendarClock } from 'lucide-react'
 import { useWorkspace } from '@/context/auth'
 import { isLeader } from '@/lib/rbac'
 import { Badge } from '@/components/ui/badge'
@@ -58,7 +57,7 @@ function PerformancePage() {
         description={org ? 'Balanced scorecard, OKRs, quarterly reviews and succession — calibrated in one place.' : 'Your goals, company KPIs and your Q3 review.'}
         actions={
           <Badge variant="outline" className="h-8 px-3">
-            <CalendarClock /> Q3 2026 cycle · closes 10 Oct
+            Q3 2026 cycle · closes 10 Oct
           </Badge>
         }
       />

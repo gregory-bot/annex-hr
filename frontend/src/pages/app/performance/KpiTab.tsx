@@ -1,8 +1,6 @@
 import { motion } from 'framer-motion'
 import { PolarAngleAxis, PolarGrid, PolarRadiusAxis, Radar, RadarChart, ResponsiveContainer, Tooltip } from 'recharts'
-import { BookOpen, Cog, HeartHandshake, TrendingUp, type LucideIcon } from 'lucide-react'
 import { useWorkspace } from '@/context/auth'
-import type { KPI } from '@/data/types'
 import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
@@ -10,13 +8,6 @@ import { ProgressRing } from '@/components/shared/ProgressRing'
 import { Section } from '@/components/shared/Section'
 import { ChartTooltip, SERIES } from '@/components/charts/ChartKit'
 import { PERSPECTIVES, attainment, isLowerBetter, kpiOnTrack, weightedScore } from './data'
-
-const ICONS: Record<KPI['perspective'], LucideIcon> = {
-  Financial: TrendingUp,
-  Customer: HeartHandshake,
-  'Internal Process': Cog,
-  'Learning & Growth': BookOpen,
-}
 
 const fmt = (v: number, unit: string) => (unit === '%' || unit.startsWith('/') ? `${v}${unit}` : unit ? `${v} ${unit}` : String(v))
 
@@ -55,20 +46,14 @@ export function KpiTab() {
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         {PERSPECTIVES.map((p, pi) => {
           const items = kpis.filter((k) => k.perspective === p)
-          const Icon = ICONS[p]
           const score = weightedScore(items)
           return (
             <motion.div key={p} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: pi * 0.06 }} whileHover={{ y: -2 }}>
               <Card className="h-full p-5">
                 <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <span className="flex size-9 items-center justify-center rounded-lg bg-accent text-accent-foreground">
-                      <Icon className="size-4" />
-                    </span>
-                    <div>
-                      <div className="font-semibold">{p}</div>
-                      <div className="text-xs text-muted-foreground">Weight {items.reduce((s, k) => s + k.weight, 0)}%</div>
-                    </div>
+                  <div className="min-w-0">
+                    <div className="font-semibold">{p}</div>
+                    <div className="text-xs text-muted-foreground">Weight {items.reduce((s, k) => s + k.weight, 0)}%</div>
                   </div>
                   <div className="text-right">
                     <div className="text-xl font-bold tabular">{Math.round(score)}%</div>

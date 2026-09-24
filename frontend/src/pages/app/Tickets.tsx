@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { ListFilter, Plus, Rows3, SquareKanban, TicketCheck } from 'lucide-react'
 import { toast } from 'sonner'
 import type { Ticket, TicketPriority, TicketStatus } from '@/data/types'
 import { PRIVATE_TICKET_TEAMS, ticketAssigneePool } from '@/data/seed'
@@ -172,23 +171,23 @@ export default function Tickets() {
             <div className="inline-flex h-9 items-center rounded-lg border bg-card p-0.5" role="radiogroup" aria-label="View">
               {(
                 [
-                  ['list', 'List', Rows3],
-                  ['board', 'Board', SquareKanban],
+                  ['list', 'List'],
+                  ['board', 'Board'],
                 ] as const
-              ).map(([v, label, Icon]) => (
+              ).map(([v, label]) => (
                 <button
                   key={v}
                   role="radio"
                   aria-checked={view === v}
                   onClick={() => setParam('view', v === 'list' ? null : v)}
-                  className={cn('inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-[13px] text-muted-foreground transition-colors hover:text-foreground', view === v && 'bg-muted font-medium text-foreground')}
+                  className={cn('inline-flex h-8 items-center rounded-md px-2.5 text-[13px] text-muted-foreground transition-colors hover:text-foreground', view === v && 'bg-muted font-medium text-foreground')}
                 >
-                  <Icon className="size-3.5" /> {label}
+                  {label}
                 </button>
               ))}
             </div>
             <Button onClick={() => openCreate()}>
-              <Plus /> New ticket
+              New ticket
               <kbd className="ml-0.5 hidden rounded border border-white/30 px-1 font-mono text-[10px] leading-4 sm:inline">C</kbd>
             </Button>
           </>
@@ -233,7 +232,7 @@ export default function Tickets() {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button className={cn(chipBase, 'bg-card', statusFilter.length ? 'text-foreground' : 'text-muted-foreground hover:text-foreground')}>
-                <ListFilter className="size-3.5" /> Status
+                Status
                 {statusFilter.length > 0 && <span className="rounded bg-muted px-1 text-[11px] tabular">{statusFilter.length}</span>}
               </button>
             </DropdownMenuTrigger>
@@ -257,7 +256,7 @@ export default function Tickets() {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button className={cn(chipBase, 'bg-card', priorityFilter.length ? 'text-foreground' : 'text-muted-foreground hover:text-foreground')}>
-                <PriorityIcon priority="High" className="text-current" /> Priority
+                Priority
                 {priorityFilter.length > 0 && <span className="rounded bg-muted px-1 text-[11px] tabular">{priorityFilter.length}</span>}
               </button>
             </DropdownMenuTrigger>
@@ -287,7 +286,6 @@ export default function Tickets() {
       <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}>
         {filtered.length === 0 ? (
           <EmptyState
-            icon={TicketCheck}
             title={filtersActive ? 'No tickets match these filters' : 'No tickets yet'}
             description={filtersActive ? 'Try another team, status or search term.' : 'Raise a request with Engineering, IT, People & HR, Finance or Facilities — they’ll pick it up from here.'}
             action={
@@ -297,7 +295,7 @@ export default function Tickets() {
                 </Button>
               ) : (
                 <Button size="sm" onClick={() => openCreate()}>
-                  <Plus /> New ticket
+                  New ticket
                 </Button>
               )
             }

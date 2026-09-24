@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Check, Plus, UserRound } from 'lucide-react'
+import { Check } from 'lucide-react'
 import type { Employee, TicketPriority, TicketStatus, TicketTeam } from '@/data/types'
 import { cn } from '@/lib/utils'
 import { PersonAvatar } from '@/components/ui/avatar'
@@ -120,7 +120,7 @@ export function AssigneePicker({
             <CommandEmpty>No one found.</CommandEmpty>
             <CommandGroup>
               <CommandItem value="no-assignee unassigned" onSelect={() => choose(null)} className="gap-2 py-1.5">
-                <UserRound className="size-5 rounded-full border border-dashed p-0.5 text-muted-foreground" />
+                <span className="size-5 shrink-0 rounded-full border border-dashed border-muted-foreground/40" aria-hidden />
                 No assignee
                 {!value && <Check className="ml-auto" />}
               </CommandItem>
@@ -153,7 +153,7 @@ export function LabelsPicker({ value, onChange, known, disabled, children }: { v
             <CommandGroup>
               {q && !all.includes(q) && (
                 <CommandItem value={`create ${q}`} onSelect={() => (toggle(q.slice(0, 32)), setSearch(''))} className="gap-2 py-1.5">
-                  <Plus /> Create label <LabelPill label={q} />
+                  Create label <LabelPill label={q} />
                 </CommandItem>
               )}
               {all.map((l) => (

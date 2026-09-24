@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { CalendarClock, Lock, Quote, Send } from 'lucide-react'
 import { toast } from 'sonner'
 import { useWorkspace } from '@/context/auth'
 import type { Employee } from '@/data/types'
@@ -69,7 +68,7 @@ export function ReviewsTab({
         description={`1 Jul – 30 Sep · reviews close 10 Oct (${daysUntil('2026-10-10')} days)`}
         action={
           <Badge variant="soft">
-            <CalendarClock /> {CYCLE_STAGES[stage]}
+            {CYCLE_STAGES[stage]}
           </Badge>
         }
       >
@@ -220,19 +219,18 @@ function ReviewForm({ employee, mode, onDone, submitted }: { employee: Employee;
         <div className="grid grid-cols-1 gap-2">
           <Label>Peer feedback</Label>
           {quotes.map((q, i) => (
-            <div key={i} className="flex gap-2.5 rounded-lg border bg-subtle p-3 text-sm">
-              <Quote className="mt-0.5 size-4 shrink-0 text-primary" />
-              <span className="text-muted-foreground">{q}</span>
-            </div>
+            <blockquote key={i} className="rounded-lg border border-l-2 border-l-primary bg-subtle p-3 text-sm text-muted-foreground">
+              {q}
+            </blockquote>
           ))}
-          <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
-            <Lock className="size-3" /> Peer feedback is anonymised
+          <span className="text-[11px] text-muted-foreground">
+            Peer feedback is anonymised
           </span>
         </div>
       )}
       <div className="flex justify-end">
         <Button onClick={submit}>
-          <Send /> {submitted ? 'Update review' : mode === 'self' ? 'Submit self review' : 'Submit review'}
+          {submitted ? 'Update review' : mode === 'self' ? 'Submit self review' : 'Submit review'}
         </Button>
       </div>
     </div>

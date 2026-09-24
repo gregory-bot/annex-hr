@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { Lock, Star } from 'lucide-react'
+import { Star } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/input'
@@ -22,8 +22,7 @@ export function ExitInterview({ name, done, onSubmit }: { name: string; done: bo
   const [justSubmitted, setJustSubmitted] = useState(false)
 
   const confidentiality = (
-    <div className="flex items-start gap-2 rounded-lg border border-dashed bg-muted/40 p-3 text-xs text-muted-foreground">
-      <Lock className="mt-0.5 size-3.5 shrink-0 text-primary" />
+    <div className="rounded-lg border border-dashed bg-muted/40 p-3 text-xs text-muted-foreground">
       Responses are confidential. They are shared with HR only in aggregate and never with {name.split(' ')[0]}'s line manager.
     </div>
   )

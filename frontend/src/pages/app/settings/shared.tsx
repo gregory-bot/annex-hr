@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Plus, X } from 'lucide-react'
+import { X } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -44,7 +44,7 @@ export function ChipEditor({ items, onChange, placeholder, noun }: { items: stri
       >
         <Input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder={placeholder} />
         <Button type="submit" variant="outline" className="h-10 shrink-0">
-          <Plus /> Add
+          Add
         </Button>
       </form>
       <div className="flex flex-wrap gap-2">

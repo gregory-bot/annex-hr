@@ -1,7 +1,6 @@
 import { useMemo } from 'react'
 import { motion } from 'framer-motion'
 import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { ArrowRight, CalendarClock, ClipboardCheck, Star, Target, TrendingUp, Trophy } from 'lucide-react'
 import { useWorkspace } from '@/context/auth'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -54,17 +53,17 @@ export function OverviewTab({
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         {org ? (
           <>
-            <StatCard index={0} label="Avg rating · Q3" value={avg.toFixed(2)} icon={Star} delta={2.4} deltaLabel="vs Q2" />
-            <StatCard index={1} label="Reviews completed" value={completedPct} format={(n) => `${Math.round(n)}%`} icon={ClipboardCheck} hint={`${completed} of ${reviews.length}`} />
-            <StatCard index={2} label="Promotion-ready" value={promo.length} icon={Trophy} tone="success" hint="Rating ≥ 4.2 · high potential" />
-            <StatCard index={3} label="Goals on track" value={`${onTrack}/${krs.length}`} icon={Target} hint="Key results ≥ 70%" />
+            <StatCard index={0} label="Avg rating · Q3" value={avg.toFixed(2)} delta={2.4} deltaLabel="vs Q2" />
+            <StatCard index={1} label="Reviews completed" value={completedPct} format={(n) => `${Math.round(n)}%`} hint={`${completed} of ${reviews.length}`} />
+            <StatCard index={2} label="Promotion-ready" value={promo.length} tone="success" hint="Rating ≥ 4.2 · high potential" />
+            <StatCard index={3} label="Goals on track" value={`${onTrack}/${krs.length}`} hint="Key results ≥ 70%" />
           </>
         ) : (
           <>
-            <StatCard index={0} label="My last rating" value={user.performance.toFixed(1)} icon={Star} hint="Q2 2026 · calibrated" />
-            <StatCard index={1} label="Self review" value={mine?.self ?? 'Not started'} icon={ClipboardCheck} tone={mine?.self === 'Submitted' ? 'success' : 'warning'} />
-            <StatCard index={2} label="Company goals on track" value={`${onTrack}/${krs.length}`} icon={Target} />
-            <StatCard index={3} label="Cycle closes" value={`${daysUntil('2026-10-10')} days`} icon={CalendarClock} hint="10 Oct 2026" />
+            <StatCard index={0} label="My last rating" value={user.performance.toFixed(1)} hint="Q2 2026 · calibrated" />
+            <StatCard index={1} label="Self review" value={mine?.self ?? 'Not started'} tone={mine?.self === 'Submitted' ? 'success' : 'warning'} />
+            <StatCard index={2} label="Company goals on track" value={`${onTrack}/${krs.length}`} />
+            <StatCard index={3} label="Cycle closes" value={`${daysUntil('2026-10-10')} days`} hint="10 Oct 2026" />
           </>
         )}
       </div>
@@ -104,7 +103,7 @@ export function OverviewTab({
               </p>
             </div>
             <Button className="mt-5 self-start" onClick={() => onGo('reviews')}>
-              Open my review <ArrowRight />
+              Open my review
             </Button>
           </Card>
         )}
@@ -116,7 +115,7 @@ export function OverviewTab({
           description="High performers with high potential — candidates for the October promotion round"
           action={
             <Button variant="ghost" size="sm" onClick={() => onGo('succession')}>
-              9-box <ArrowRight />
+              9-box
             </Button>
           }
         >
@@ -139,10 +138,7 @@ export function OverviewTab({
                     </div>
                   </div>
                   <div className="flex shrink-0 flex-col items-end gap-1">
-                    <span className="inline-flex items-center gap-1 text-sm font-semibold tabular">
-                      <TrendingUp className="size-3.5 text-muted-foreground" />
-                      {e.performance.toFixed(1)}
-                    </span>
+                    <span className="text-sm font-semibold tabular">{e.performance.toFixed(1)}</span>
                     <Badge variant={r === 'Ready now' ? 'success' : 'info'}>{r}</Badge>
                   </div>
                 </motion.li>

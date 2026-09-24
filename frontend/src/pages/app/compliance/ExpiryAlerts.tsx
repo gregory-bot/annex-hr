@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { BellRing, RefreshCw, Send } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -43,7 +42,7 @@ export function ExpiryAlerts({ docs, self }: { docs: DocRow[]; self: boolean }) 
                 action={
                   items.length > 0 && !self ? (
                     <Button size="sm" variant="outline" onClick={() => toast.success(`${items.length} reminders sent via email & in-app`)}>
-                      <Send /> <span className="hidden sm:inline">Remind all</span>
+                      Remind all
                     </Button>
                   ) : undefined
                 }
@@ -76,7 +75,7 @@ export function ExpiryAlerts({ docs, self }: { docs: DocRow[]; self: boolean }) 
                         </div>
                         <div className="flex shrink-0 gap-2">
                           <Button size="sm" variant="ghost" onClick={() => toast.success(self ? 'Reminder set for tomorrow' : `Reminder sent to ${d.emp?.name}`)}>
-                            <BellRing /> {self ? 'Remind me' : 'Send reminder'}
+                            {self ? 'Remind me' : 'Send reminder'}
                           </Button>
                           <Button
                             size="sm"
@@ -87,7 +86,7 @@ export function ExpiryAlerts({ docs, self }: { docs: DocRow[]; self: boolean }) 
                               toast.success(self ? `Renewal request for your ${d.type} sent to HR` : `Renewal requested from ${d.emp?.name}`)
                             }}
                           >
-                            <RefreshCw /> {requested.has(d.id) ? 'Requested' : 'Request renewal'}
+                            {requested.has(d.id) ? 'Requested' : 'Request renewal'}
                           </Button>
                         </div>
                       </li>

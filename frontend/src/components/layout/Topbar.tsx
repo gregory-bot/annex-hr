@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion'
-import { Bell, ChevronDown, LogOut, Menu, Moon, Search, Settings, Sun, User, UserCog } from 'lucide-react'
+import { Bell, ChevronDown, Menu, Moon, Search, Sun } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -19,7 +19,7 @@ import { LogoMark } from '@/components/shared/Logo'
 const roles: Role[] = ['company_admin', 'hr_officer', 'manager', 'employee', 'consultant', 'finance', 'ceo', 'super_admin']
 
 export function Topbar({ onOpenMenu, onOpenSearch }: { onOpenMenu: () => void; onOpenSearch: () => void }) {
-  const { user, role, switchRole, signOut, workspace, demoEnabled } = useAuth()
+  const { user, role, switchRole, signOut, workspace, demoSession } = useAuth()
   const { theme, toggle } = useTheme()
   const navigate = useNavigate()
   if (!user) return null
@@ -44,10 +44,9 @@ export function Topbar({ onOpenMenu, onOpenSearch }: { onOpenMenu: () => void; o
       </button>
 
       <div className="flex shrink-0 items-center gap-0.5 sm:ml-auto sm:gap-1.5">
-        {demoEnabled && <DropdownMenu>
+        {demoSession && <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button className="hidden h-9 items-center gap-1.5 rounded-lg border border-dashed border-primary/40 bg-accent/40 px-2.5 text-xs font-medium text-accent-foreground transition hover:bg-accent lg:flex">
-              <UserCog className="size-3.5" />
               View as: {roleLabels[role]}
               <ChevronDown className="size-3.5 opacity-60" />
             </button>
@@ -107,13 +106,15 @@ export function Topbar({ onOpenMenu, onOpenSearch }: { onOpenMenu: () => void; o
             </div>
             <DropdownMenuSeparator />
             <DropdownMenuItem onSelect={() => navigate(`/app/people?id=${user.id}`)}>
-              <User /> My profile
+              My profile
             </DropdownMenuItem>
-            <DropdownMenuItem className="lg:hidden" onSelect={() => navigate('/app/settings?tab=roles')}>
-              <UserCog /> Switch role (demo)
+            {demoSession && (
+              <DropdownMenuItem className="lg:hidden" onSelect={() => navigate('/app/settings?tab=roles')}>
+              Switch role (demo)
             </DropdownMenuItem>
+            )}
             <DropdownMenuItem onSelect={() => navigate('/app/settings')}>
-              <Settings /> Settings
+              Settings
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
@@ -122,7 +123,7 @@ export function Topbar({ onOpenMenu, onOpenSearch }: { onOpenMenu: () => void; o
                 void signOut().then(() => navigate('/login'))
               }}
             >
-              <LogOut /> Sign out
+              Sign out
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -173,13 +174,13 @@ function NotificationsButton() {
                 }}
                 className="flex w-full gap-3 border-b px-4 py-3 text-left transition last:border-0 hover:bg-muted/60"
               >
-                <span className={cn('flex size-8 shrink-0 items-center justify-center rounded-full', meta.tone)}>
-                  <meta.icon className="size-4" />
-                </span>
+                <span aria-hidden className={cn('mt-[7px] size-1.5 shrink-0 rounded-full', meta.dot)} />
                 <span className="min-w-0 flex-1">
                   <span className={cn('block text-[13px] leading-snug', !n.read && 'font-semibold')}>{n.title}</span>
                   <span className="mt-0.5 block truncate text-xs text-muted-foreground">{n.body}</span>
-                  <span className="mt-1 block text-[11px] text-muted-foreground">{n.time}</span>
+                  <span className="mt-1 block text-[11px] text-muted-foreground">
+                    {meta.label} · {n.time}
+                  </span>
                 </span>
                 {!n.read && <span className="mt-1.5 size-2 shrink-0 rounded-full bg-primary" />}
               </button>

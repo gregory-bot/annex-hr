@@ -4,15 +4,17 @@
 import datetime as dt
 import json
 import math
+import re
 from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Body, Depends, Request
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, ConfigDict, Field, RootModel, StringConstraints
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
 from ..audit import audit
 from ..db import iso, query, query_one, tx
-from ..errors import bad_request, forbidden, parse
+from ..employee_records import DOC_TASKS, onboarding_view, recompute_onboarding
+from ..errors import bad_request, forbidden, not_found, parse
 from ..repository import owned, to_case, to_compliance_doc, to_document, to_offboarding, to_policy
 from ..roles import ADMIN, EXEC, LEADERS, is_admin, is_exec
 from ..security import AuthContext, client_ip, require_auth, require_role
@@ -98,33 +100,131 @@ def publish_version(id: str, request: Request, body: Any = Body(default=None), a
 # ── Onboarding checklist ────────────────────────────────────────────
 @router.get("/onboarding/me")
 def my_onboarding(auth: AuthContext = Depends(require_auth)):
-    tasks = query("SELECT * FROM onboarding_tasks WHERE workspace_id = $1 ORDER BY position", [auth.workspaceId])
-    done = {d["task_id"]: d["completed_at"] for d in query("SELECT task_id, completed_at FROM onboarding_task_completions WHERE employee_id = $1", [auth.employeeId])}
-    return [
-        {"id": t["id"], "title": t["title"], "description": t["description"], "category": t["category"], "required": t["required"], "completedAt": iso(done[t["id"]]) if t["id"] in done else None}
-        for t in tasks
-    ]
+    """Per-task completion, attached file and saved form values — the checklist restores from this."""
+    view = onboarding_view(auth, auth.employeeId)
+    if not view:
+        raise not_found("Employee")
+    return view
 
 
-class Payload(RootModel[dict[str, Any]]):
-    pass
+@router.get("/onboarding/employees/{id}")
+def employee_onboarding(id: str, auth: AuthContext = Depends(require_role(*ADMIN))):
+    view = onboarding_view(auth, id)
+    if not view:
+        raise not_found("Employee")
+    return view
+
+
+KRA_PIN = re.compile(r"^[A-Z]\d{9}[A-Z]$")
+NATIONAL_ID = re.compile(r"^\d{6,10}$")
+STATUTORY_NO = re.compile(r"^[A-Z0-9-]{4,20}$")
+
+
+class CompleteBody(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    fileId: Trim(1, 64) | None = None
+    number: Trim(None, 32) | None = None
+    signature: Trim(None, 120) | None = None
+    name: Trim(None, 120) | None = None
+    relationship: Trim(None, 40) | None = None
+    phone: Trim(None, 24) | None = None
+    bankName: Trim(None, 80) | None = None
+    branch: Trim(None, 80) | None = None
+    accountName: Trim(None, 120) | None = None
+    accountNumber: Trim(None, 32) | None = None
+
+
+def _invalid(path: str, message: str) -> Exception:
+    return bad_request("Validation failed", [{"path": path, "message": message}])
 
 
 @router.post("/onboarding/tasks/{taskId}/complete")
-def complete_task(taskId: str, body: Any = Body(default=None), auth: AuthContext = Depends(require_auth)):
-    payload = parse(Payload, body if body is not None else {}).root
-    # Never store bank or ID numbers in plain payloads beyond what the task needs.
-    query(
-        """INSERT INTO onboarding_task_completions (workspace_id, task_id, employee_id, payload) VALUES ($1,$2,$3,$4)
-     ON CONFLICT (employee_id, task_id) DO UPDATE SET completed_at = now(), payload = EXCLUDED.payload""",
-        [auth.workspaceId, taskId, auth.employeeId, json.dumps(payload)],
-    )
-    pct = query_one(
-        "SELECT ROUND(100.0 * (SELECT count(*) FROM onboarding_task_completions WHERE employee_id = $2) / GREATEST(1, (SELECT count(*) FROM onboarding_tasks WHERE workspace_id = $1)))::int AS pct",
-        [auth.workspaceId, auth.employeeId],
-    )["pct"]
-    query("UPDATE employees SET onboarding_progress = LEAST(100, $2), updated_at = now() WHERE id = $1", [auth.employeeId, pct])
-    return {"taskId": taskId, "onboardingProgress": min(100, pct)}
+def complete_task(taskId: str, request: Request, body: Any = Body(default=None), auth: AuthContext = Depends(require_auth)):
+    b = parse(CompleteBody, body if body is not None else {})
+    emp_id, ws = auth.employeeId, auth.workspaceId
+    profile: dict[str, Any] = {}  # employee_profiles columns to upsert
+    employee: dict[str, Any] = {}  # employees columns to update
+    # Sensitive values go to their columns; the payload keeps only non-sensitive extras (e.g. policy lists).
+    payload = {k: v for k, v in (b.model_extra or {}).items() if k in ("policies",)}
+
+    if taskId in DOC_TASKS:
+        category, col = DOC_TASKS[taskId]
+        if b.number:
+            number = b.number.upper().replace(" ", "")
+            pattern, hint = {
+                "kra_pin": (KRA_PIN, "KRA PIN must look like A123456789B"),
+                "national_id": (NATIONAL_ID, "National ID must be 6–10 digits"),
+            }.get(col, (STATUTORY_NO, "Use 4–20 letters, digits or dashes"))
+            if not pattern.match(number):
+                raise _invalid("number", hint)
+            (employee if col in ("kra_pin", "national_id") else profile)[col] = number
+    elif taskId == "nda":
+        if not b.signature or len(b.signature) < 2:
+            raise _invalid("signature", "Type your full name to sign")
+        profile.update(nda_signature=b.signature, nda_signed_at=dt.datetime.now(dt.timezone.utc))
+    elif taskId == "emergency":
+        if not b.name or len(b.name) < 2:
+            raise _invalid("name", "Enter the contact's full name")
+        if not b.relationship:
+            raise _invalid("relationship", "Choose a relationship")
+        if not b.phone or len(re.sub(r"\D", "", b.phone)) < 9:
+            raise _invalid("phone", "Enter a valid phone number")
+        profile.update(emergency_name=b.name, emergency_relationship=b.relationship, emergency_phone=b.phone)
+    elif taskId == "bank":
+        digits = re.sub(r"[\s-]", "", b.accountNumber or "")
+        if not b.bankName:
+            raise _invalid("bankName", "Choose your bank")
+        if not b.branch:
+            raise _invalid("branch", "Enter the branch")
+        if not re.fullmatch(r"\d{6,20}", digits):
+            raise _invalid("accountNumber", "Account number must be 6–20 digits")
+        profile.update(bank_name=b.bankName, bank_branch=b.branch, bank_account_name=b.accountName, bank_account_number=digits)
+
+    with tx() as db:
+        if not query_one("SELECT 1 FROM onboarding_tasks WHERE workspace_id = $1 AND id = $2", [ws, taskId], db):
+            raise not_found("Onboarding task")
+        prev = query_one("SELECT file_id FROM onboarding_task_completions WHERE employee_id = $1 AND task_id = $2", [emp_id, taskId], db)
+        file_id = b.fileId or (prev or {}).get("file_id")
+        if b.fileId:
+            # The file must be the caller's own upload target.
+            f = query_one("SELECT id FROM employee_files WHERE id = $1 AND workspace_id = $2 AND employee_id = $3", [b.fileId, ws, emp_id], db)
+            if not f:
+                raise not_found("File")
+            query(
+                "UPDATE employee_files SET task_id = $2, category = COALESCE($3, category) WHERE id = $1",
+                [b.fileId, taskId, DOC_TASKS[taskId][0] if taskId in DOC_TASKS else None],
+                db,
+            )
+        if taskId in DOC_TASKS and not file_id:
+            raise _invalid("fileId", "Upload the document first")
+
+        query(
+            """INSERT INTO onboarding_task_completions (workspace_id, task_id, employee_id, payload, file_id) VALUES ($1,$2,$3,$4,$5)
+         ON CONFLICT (employee_id, task_id) DO UPDATE SET completed_at = now(), payload = EXCLUDED.payload, file_id = EXCLUDED.file_id""",
+            [ws, taskId, emp_id, json.dumps(payload), file_id],
+            db,
+        )
+        # Replacing a document removes the superseded upload.
+        if prev and prev.get("file_id") and prev["file_id"] != file_id:
+            query("DELETE FROM employee_files WHERE id = $1 AND employee_id = $2", [prev["file_id"], emp_id], db)
+
+        if employee:
+            sets = ", ".join(f"{c} = ${i + 2}" for i, c in enumerate(employee))
+            query(f"UPDATE employees SET {sets}, updated_at = now() WHERE id = $1", [emp_id, *employee.values()], db)
+        if profile:
+            cols = list(profile)
+            query(
+                f"""INSERT INTO employee_profiles (employee_id, workspace_id, {", ".join(cols)}) VALUES ($1, $2, {", ".join(f"${i + 3}" for i in range(len(cols)))})
+             ON CONFLICT (employee_id) DO UPDATE SET {", ".join(f"{c} = EXCLUDED.{c}" for c in cols)}, updated_at = now()""",
+                [emp_id, ws, *profile.values()],
+                db,
+            )
+        r = recompute_onboarding(db, ws, emp_id)
+        audit(request, auth, "onboarding.task_completed", "onboarding_task", taskId, {"fileId": file_id, "fields": sorted([*profile, *employee])}, db)
+        view = onboarding_view(auth, emp_id, db)
+    task = next((t for t in view["tasks"] if t["id"] == taskId), None) if view else None
+    return {"taskId": taskId, "onboardingProgress": r["onboarding_progress"], "status": r["status"], "requiredLeft": r["required_left"], "task": task}
 
 
 # ── Compliance documents ────────────────────────────────────────────

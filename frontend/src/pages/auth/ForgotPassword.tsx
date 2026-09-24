@@ -2,18 +2,20 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { toast } from 'sonner'
-import { ArrowLeft, Mail } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { SuccessCheck } from '@/components/shared/SuccessCheck'
 import { api, USE_MOCK_API } from '@/lib/api'
 import { useWorkspaceLookup } from './useWorkspaceLookup'
+import { workspaceFromHost } from '@/lib/tenant'
 import { cn } from '@/lib/utils'
 import { AuthLayout, slideVariants } from './AuthLayout'
 import { Field, SubmitButton, WorkspaceInput } from './fields'
 
 export default function ForgotPassword() {
-  const [slug, setSlug] = useState('')
+  // On <slug>.annexhr.com (or <slug>.localhost) the workspace comes from the address.
+  const hostSlug = workspaceFromHost()
+  const [slug, setSlug] = useState(hostSlug ?? '')
   const [email, setEmail] = useState('')
   const [touched, setTouched] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -50,29 +52,26 @@ export default function ForgotPassword() {
       <AnimatePresence mode="wait" custom={1}>
         {!sent ? (
           <motion.div key="form" custom={1} variants={slideVariants} initial="enter" animate="center" exit="exit">
-            <Link to="/login" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
-              <ArrowLeft className="size-4" /> Back to sign in
+            <Link to="/login" className="text-sm text-muted-foreground hover:text-foreground">
+              Back to sign in
             </Link>
             <h1 className="mt-6 text-2xl font-bold tracking-tight sm:text-3xl">Reset your password</h1>
             <p className="mt-2 text-sm text-muted-foreground">We'll email a secure reset link to the address registered in your company workspace.</p>
             <form onSubmit={submit} noValidate className="mt-8 grid grid-cols-1 gap-4">
               <Field id="fp-workspace" label="Company workspace" error={slugError} hint={ws ? `Resetting access for ${ws.name}` : undefined}>
-                <WorkspaceInput id="fp-workspace" value={slug} onChange={setSlug} invalid={!!slugError} />
+                <WorkspaceInput id="fp-workspace" value={slug} onChange={setSlug} invalid={!!slugError} readOnly={!!hostSlug} />
               </Field>
               <Field id="fp-email" label="Work email" error={emailError}>
-                <div className="relative">
-                  <Mail className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    id="fp-email"
-                    type="email"
-                    autoComplete="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="you@company.com"
-                    className={cn('pl-9', emailError && 'border-danger')}
-                    aria-invalid={!!emailError || undefined}
-                  />
-                </div>
+                                <Input
+                  id="fp-email"
+                  type="email"
+                  autoComplete="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@company.com"
+                  className={cn(emailError && 'border-danger')}
+                  aria-invalid={!!emailError || undefined}
+                />
               </Field>
               <SubmitButton loading={loading} loadingText="Sending link…">
                 Send reset link

@@ -9,6 +9,8 @@ export interface WorkspaceLookup {
   logoText: string
   industry: string
   country: string
+  /** Uploaded company logo, when the workspace has one. */
+  logoUrl?: string | null
 }
 
 /** Resolves <slug>.annexhr.com to a workspace as the user types (debounced). */

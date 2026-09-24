@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { ArrowDown, ArrowUp, Eye, Lock, MessageSquareText, Plus, Rocket, Smile, Gauge, ListChecks, Trash2, X, type LucideIcon } from 'lucide-react'
+import { ArrowDown, ArrowUp, Trash2, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { format } from 'date-fns'
 import { useWorkspace } from '@/context/auth'
@@ -16,8 +16,6 @@ import { DatePicker } from '@/components/shared/DatePicker'
 import { cn } from '@/lib/utils'
 import { QUESTION_TYPES, blankQuestion, type Question, type QuestionType } from './data'
 import { QuestionView, type Answer } from './QuestionView'
-
-const TYPE_ICON: Record<QuestionType, LucideIcon> = { emoji: Smile, nps: Gauge, choice: ListChecks, text: MessageSquareText }
 
 export interface PublishedSurvey {
   title: string
@@ -80,9 +78,7 @@ export function Builder({ open, onOpenChange, onPublish }: { open: boolean; onOp
             <SheetDescription className="truncate">Build, preview and publish in minutes</SheetDescription>
           </div>
           <div className="flex shrink-0 items-center gap-2">
-            <Button onClick={publish}>
-              <Rocket /> Publish
-            </Button>
+            <Button onClick={publish}>Publish</Button>
             <Button variant="ghost" size="icon" onClick={() => onOpenChange(false)} aria-label="Close">
               <X />
             </Button>
@@ -128,12 +124,9 @@ export function Builder({ open, onOpenChange, onPublish }: { open: boolean; onOp
             </div>
 
             <div className="flex items-start justify-between gap-4 rounded-xl border bg-subtle p-4">
-              <div className="flex gap-3">
-                <Lock className="mt-0.5 size-4 shrink-0 text-primary" />
-                <div>
-                  <div className="text-sm font-medium">Anonymous responses</div>
-                  <p className="mt-0.5 text-xs text-muted-foreground">Responses are anonymous — managers see aggregates only, minimum group size 5.</p>
-                </div>
+              <div>
+                <div className="text-sm font-medium">Anonymous responses</div>
+                <p className="mt-0.5 text-xs text-muted-foreground">Responses are anonymous — managers see aggregates only, minimum group size 5.</p>
               </div>
               <Switch checked={anonymous} onCheckedChange={setAnonymous} aria-label="Anonymous responses" />
             </div>
@@ -142,7 +135,6 @@ export function Builder({ open, onOpenChange, onPublish }: { open: boolean; onOp
               <Label>Questions ({questions.length})</Label>
               <AnimatePresence initial={false}>
                 {questions.map((q, i) => {
-                  const Icon = TYPE_ICON[q.type]
                   const isActive = i === active
                   return (
                     <motion.div
@@ -158,9 +150,6 @@ export function Builder({ open, onOpenChange, onPublish }: { open: boolean; onOp
                       className={cn('rounded-xl border bg-card p-3 transition-shadow', isActive ? 'border-primary/50 shadow-md shadow-primary/5' : 'hover:border-foreground/20')}
                     >
                       <div className="flex items-center gap-2">
-                        <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-accent text-accent-foreground">
-                          <Icon className="size-3.5" />
-                        </span>
                         <span className="text-xs font-medium text-muted-foreground">
                           Q{i + 1} · {QUESTION_TYPES.find((t) => t.value === q.type)?.label}
                         </span>
@@ -188,7 +177,7 @@ export function Builder({ open, onOpenChange, onPublish }: { open: boolean; onOp
                             </div>
                           ))}
                           <Button variant="link" size="sm" className="justify-start" onClick={() => update(i, { options: [...(q.options ?? []), `Option ${(q.options?.length ?? 0) + 1}`] })}>
-                            <Plus /> Add option
+                            Add option
                           </Button>
                         </div>
                       )}
@@ -199,7 +188,7 @@ export function Builder({ open, onOpenChange, onPublish }: { open: boolean; onOp
               <div className="flex gap-2">
                 <SimpleSelect value={newType} onValueChange={(v) => setNewType(v as QuestionType)} options={QUESTION_TYPES.map((t) => ({ value: t.value, label: t.label }))} className="flex-1" />
                 <Button variant="outline" onClick={add} className="h-10">
-                  <Plus /> Add question
+                  Add question
                 </Button>
               </div>
             </div>
@@ -209,13 +198,9 @@ export function Builder({ open, onOpenChange, onPublish }: { open: boolean; onOp
           <div className="bg-subtle p-5">
             <div className="lg:sticky lg:top-24">
               <div className="mb-3 flex items-center justify-between">
-                <span className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  <Eye className="size-3.5" /> Live preview
-                </span>
+                <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Live preview</span>
                 {anonymous && (
-                  <Badge variant="muted">
-                    <Lock /> Anonymous
-                  </Badge>
+                  <Badge variant="muted">Anonymous</Badge>
                 )}
               </div>
               <div className="mx-auto max-w-md rounded-3xl border bg-card p-5 shadow-xl shadow-black/5">

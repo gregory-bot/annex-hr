@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { BellRing, FileArchive, FileText, LayoutDashboard, ScrollText } from 'lucide-react'
 import { useWorkspace } from '@/context/auth'
 import type { ComplianceDoc } from '@/data/types'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -55,22 +54,12 @@ export default function Compliance() {
       />
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList>
-          <TabsTrigger value="overview">
-            <LayoutDashboard /> Overview
-          </TabsTrigger>
-          <TabsTrigger value="documents">
-            <FileText /> {self ? 'My documents' : 'Employee documents'}
-          </TabsTrigger>
-          <TabsTrigger value="alerts">
-            <BellRing /> Expiry alerts
-          </TabsTrigger>
-          <TabsTrigger value="policies">
-            <ScrollText /> Policies
-          </TabsTrigger>
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="documents">{self ? 'My documents' : 'Employee documents'}</TabsTrigger>
+          <TabsTrigger value="alerts">Expiry alerts</TabsTrigger>
+          <TabsTrigger value="policies">Policies</TabsTrigger>
           {!self && (
-            <TabsTrigger value="audit">
-              <FileArchive /> Audit-ready files
-            </TabsTrigger>
+            <TabsTrigger value="audit">Audit-ready files</TabsTrigger>
           )}
         </TabsList>
         <TabsContent value="overview">

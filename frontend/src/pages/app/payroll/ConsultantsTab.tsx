@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react'
-import { Clock, Smartphone, Users, Wallet } from 'lucide-react'
 import { toast } from 'sonner'
 import { useWorkspace } from '@/context/auth'
 import type { Employee } from '@/data/types'
@@ -88,7 +87,7 @@ export function ConsultantsTab() {
         const s = status[r.employee.id]
         return (
           <Button size="sm" variant={s === 'Ready to pay' ? 'default' : 'outline'} disabled={s !== 'Ready to pay'} onClick={(ev) => { ev.stopPropagation(); pay(r) }}>
-            <Smartphone /> {s === 'Paid' ? 'Paid' : s === 'Processing' ? 'Sending…' : 'Pay via M-Pesa B2C'}
+            {s === 'Paid' ? 'Paid' : s === 'Processing' ? 'Sending…' : 'Pay via M-Pesa B2C'}
           </Button>
         )
       },
@@ -98,10 +97,10 @@ export function ConsultantsTab() {
   return (
     <div className="grid grid-cols-1 gap-4">
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-        <StatCard index={0} label="Active consultants" value={rows.length} icon={Users} />
-        <StatCard index={1} label="Approved hours" value={totals.hours} icon={Clock} hint="Last 3 weeks" />
-        <StatCard index={2} label="Gross payable" value={totals.gross} format={(v) => formatKES(v, { compact: true })} icon={Wallet} />
-        <StatCard index={3} label="Withholding tax" value={totals.wht} format={(v) => formatKES(v, { compact: true })} icon={Wallet} hint="Remit to KRA by 20th" />
+        <StatCard index={0} label="Active consultants" value={rows.length} />
+        <StatCard index={1} label="Approved hours" value={totals.hours} hint="Last 3 weeks" />
+        <StatCard index={2} label="Gross payable" value={totals.gross} format={(v) => formatKES(v, { compact: true })} />
+        <StatCard index={3} label="Withholding tax" value={totals.wht} format={(v) => formatKES(v, { compact: true })} hint="Remit to KRA by 20th" />
       </div>
       <Card className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="text-sm">
@@ -110,9 +109,7 @@ export function ConsultantsTab() {
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <Badge variant="outline">M-Pesa B2C · sandbox</Badge>
-          <Button onClick={payAll}>
-            <Smartphone /> Pay all ready
-          </Button>
+          <Button onClick={payAll}>Pay all ready</Button>
         </div>
       </Card>
       <DataTable rows={rows} columns={columns} rowKey={(r) => r.employee.id} />

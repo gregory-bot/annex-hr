@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { ChevronDown, Flag } from 'lucide-react'
+import { ChevronDown } from 'lucide-react'
 import { useWorkspace } from '@/context/auth'
 import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
@@ -38,10 +38,7 @@ export function OkrTab({ objectives }: { objectives: Objective[] }) {
               >
                 <ProgressRing value={pct} size={52} stroke={5} className="shrink-0" />
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-start gap-2">
-                    <Flag className="mt-0.5 size-4 shrink-0 text-primary" />
-                    <div className="font-semibold leading-snug">{o.title}</div>
-                  </div>
+                  <div className="font-semibold leading-snug">{o.title}</div>
                   <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
                     {owner && (
                       <span className="inline-flex items-center gap-1.5">

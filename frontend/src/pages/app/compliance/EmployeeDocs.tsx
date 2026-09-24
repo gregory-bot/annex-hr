@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { FileText, Upload } from 'lucide-react'
 import { toast } from 'sonner'
 import type { ComplianceDoc, Employee } from '@/data/types'
 import { Button } from '@/components/ui/button'
@@ -54,12 +53,7 @@ export function EmployeeDocs({
     {
       key: 'type',
       header: 'Document',
-      cell: (d) => (
-        <div className="flex items-center gap-2">
-          <FileText className="size-4 shrink-0 text-muted-foreground" />
-          <span className="text-sm font-medium">{d.type}</span>
-        </div>
-      ),
+      cell: (d) => <span className="text-sm font-medium">{d.type}</span>,
       sortValue: (d) => d.type,
     },
     { key: 'number', header: 'Number', cell: (d) => <span className="font-mono text-xs tabular">{maskNumber(d.number)}</span> },
@@ -91,9 +85,7 @@ export function EmployeeDocs({
           <SimpleSelect value={type} onValueChange={setType} options={[{ value: 'all', label: 'All types' }, ...DOC_TYPES]} className="h-9" />
           <SimpleSelect value={status} onValueChange={setStatus} options={[{ value: 'all', label: 'All statuses' }, 'Valid', 'Expiring', 'Expired', 'Missing']} className="h-9" />
         </div>
-        <Button onClick={() => setOpen(true)}>
-          <Upload /> Upload document
-        </Button>
+        <Button onClick={() => setOpen(true)}>Upload document</Button>
       </div>
       <DataTable rows={rows} columns={columns} rowKey={(d) => d.id} pageSize={10} />
       <UploadDialog open={open} onOpenChange={setOpen} employees={employees} self={self} user={user} onAdd={onAdd} />

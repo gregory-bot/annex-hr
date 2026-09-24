@@ -51,7 +51,7 @@ export function PasswordInput({ id, value, onChange, placeholder = '••••
 }
 
 /** Suffix input for `{slug}.annexhr.com`. */
-export function WorkspaceInput({ id, value, onChange, invalid }: { id: string; value: string; onChange: (v: string) => void; invalid?: boolean }) {
+export function WorkspaceInput({ id, value, onChange, invalid, readOnly }: { id: string; value: string; onChange: (v: string) => void; invalid?: boolean; readOnly?: boolean }) {
   return (
     <div
       className={cn(
@@ -68,7 +68,8 @@ export function WorkspaceInput({ id, value, onChange, invalid }: { id: string; v
         autoCapitalize="none"
         spellCheck={false}
         aria-invalid={invalid || undefined}
-        className="min-w-0 flex-1 bg-transparent px-3 outline-none placeholder:text-muted-foreground/70"
+        readOnly={readOnly}
+        className={cn('min-w-0 flex-1 bg-transparent px-3 outline-none placeholder:text-muted-foreground/70', readOnly && 'cursor-default text-muted-foreground')}
       />
     </div>
   )

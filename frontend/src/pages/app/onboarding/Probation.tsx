@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
-import { Bell, CalendarPlus, Check, Clock, Hourglass, Mail, UserCheck } from 'lucide-react'
+import { Check } from 'lucide-react'
 import { toast } from 'sonner'
 import { useWorkspace } from '@/context/auth'
 import type { Employee } from '@/data/types'
@@ -45,7 +45,7 @@ export function Probation() {
   )
 
   if (list.length === 0) {
-    return <EmptyState icon={Hourglass} title={self ? 'You’re not on probation' : 'No one on probation'} description={self ? 'Your employment is confirmed.' : 'New joiners on probation will appear here.'} />
+    return <EmptyState title={self ? 'You’re not on probation' : 'No one on probation'} description={self ? 'Your employment is confirmed.' : 'New joiners on probation will appear here.'} />
   }
 
   const submitExtend = () => {
@@ -115,9 +115,7 @@ export function Probation() {
                 <div className="min-w-0 text-sm">
                   <div className="text-2xl font-bold tracking-tight tabular">{isConfirmed ? '—' : Math.max(0, remaining)}</div>
                   <div className="text-xs text-muted-foreground">{isConfirmed ? 'Employment confirmed' : remaining < 0 ? `Ended ${-remaining} days ago` : 'days remaining'}</div>
-                  <div className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
-                    <Clock className="size-3" /> Ends {formatDate(end)}
-                  </div>
+                  <div className="mt-1 text-xs text-muted-foreground">Ends {formatDate(end)}</div>
                 </div>
               </div>
 
@@ -135,7 +133,7 @@ export function Probation() {
                         !done && !next && 'text-muted-foreground',
                       )}
                     >
-                      {done ? <Check className="size-3" /> : <Clock className="size-3" />}
+                      {done && <Check className="size-3" />}
                       {m.label}
                     </span>
                   )
@@ -146,13 +144,13 @@ export function Probation() {
                 <span className="truncate">Manager: {mgr?.name ?? '—'}</span>
                 <span className="flex shrink-0 items-center gap-2">
                   <Tip label={elapsed >= 30 ? 'Manager notified by email' : 'Manager notified at day 30'}>
-                    <span className={cn('inline-flex items-center gap-1', elapsed >= 30 && 'text-success')}>
-                      <Mail className="size-3.5" /> Mgr
+                    <span className={cn('inline-flex items-center gap-1.5', elapsed >= 30 && 'text-success')}>
+                      <span className={cn('size-1.5 rounded-full', elapsed >= 30 ? 'bg-success' : 'bg-muted-foreground/40')} /> Mgr
                     </span>
                   </Tip>
                   <Tip label={elapsed >= 60 ? 'HR notified in-app' : 'HR notified at day 60'}>
-                    <span className={cn('inline-flex items-center gap-1', elapsed >= 60 && 'text-success')}>
-                      <Bell className="size-3.5" /> HR
+                    <span className={cn('inline-flex items-center gap-1.5', elapsed >= 60 && 'text-success')}>
+                      <span className={cn('size-1.5 rounded-full', elapsed >= 60 ? 'bg-success' : 'bg-muted-foreground/40')} /> HR
                     </span>
                   </Tip>
                 </span>
@@ -169,7 +167,7 @@ export function Probation() {
                       toast.success(`Appraisal scheduled for ${e.name.split(' ')[0]} — invite sent to ${mgr?.name ?? 'manager'}`)
                     }}
                   >
-                    <CalendarPlus /> <span className="truncate">{scheduled.has(e.id) ? 'Scheduled' : 'Appraisal'}</span>
+                    <span className="truncate">{scheduled.has(e.id) ? 'Scheduled' : 'Appraisal'}</span>
                   </Button>
                   <Button
                     size="sm"
@@ -179,10 +177,10 @@ export function Probation() {
                       toast.success(`${e.name} confirmed — confirmation letter generated`)
                     }}
                   >
-                    <UserCheck /> <span className="truncate">Confirm</span>
+                    <span className="truncate">Confirm</span>
                   </Button>
                   <Button size="sm" variant="ghost" className="px-2" onClick={() => setExtendFor(e)}>
-                    <Hourglass /> <span className="truncate">Extend</span>
+                    <span className="truncate">Extend</span>
                   </Button>
                 </div>
               )}

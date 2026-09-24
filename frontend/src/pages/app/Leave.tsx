@@ -2,24 +2,6 @@ import { useId, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import {
-  AlertTriangle,
-  CalendarDays,
-  CalendarPlus,
-  Check,
-  CheckCircle2,
-  Clock,
-  FileText,
-  Flag,
-  Globe,
-  SquareKanban,
-  ListChecks,
-  PartyPopper,
-  Send,
-  TrendingUp,
-  X,
-  XCircle,
-} from 'lucide-react'
 import { toast } from 'sonner'
 import { api, errorMessage, USE_MOCK_API } from '@/lib/api'
 import type { LeaveRequest, LeaveType } from '@/data/types'
@@ -175,7 +157,7 @@ export default function Leave() {
         description={leader ? `${pendingCount} requests awaiting approval · ${offToday} people off today` : 'Your balances, requests and who’s away on your team.'}
         actions={
           <Button onClick={() => setApplyOpen(true)}>
-            <CalendarPlus /> Apply leave
+            Apply leave
           </Button>
         }
       />
@@ -184,7 +166,6 @@ export default function Leave() {
       <div className="-mx-4 mb-6 flex snap-x gap-3 overflow-x-auto px-4 pb-1 no-scrollbar sm:mx-0 sm:grid sm:grid-cols-3 sm:overflow-visible sm:px-0 xl:grid-cols-6">
         {balances.map((b, i) => {
           const meta = leaveMeta[b.type]
-          const Icon = meta.icon
           const pct = b.entitlement ? ((b.entitlement - b.remaining) / b.entitlement) * 100 : 0
           return (
             <motion.div
@@ -198,7 +179,7 @@ export default function Leave() {
               <div className="flex items-start justify-between gap-2">
                 <div>
                   <div className="flex items-center gap-1.5 text-[13px] font-medium text-muted-foreground">
-                    <Icon className="size-4 text-primary" /> {b.type}
+                    <span className="size-2 shrink-0 rounded-full" style={{ background: meta.color }} aria-hidden /> {b.type}
                   </div>
                   <div className="mt-2 text-2xl font-bold tabular">
                     {b.remaining}
@@ -220,21 +201,21 @@ export default function Leave() {
         <TabsList>
           {leader && (
             <TabsTrigger value="approvals">
-              <SquareKanban /> Approvals
+              Approvals
               {pendingCount > 0 && <span className="rounded-full bg-primary px-1.5 text-[10px] font-semibold text-primary-foreground">{pendingCount}</span>}
             </TabsTrigger>
           )}
           <TabsTrigger value="mine">
-            <ListChecks /> My requests
+            My requests
           </TabsTrigger>
           <TabsTrigger value="calendar">
-            <CalendarDays /> Team calendar
+            Team calendar
           </TabsTrigger>
           <TabsTrigger value="holidays">
-            <PartyPopper /> Holiday calendar
+            Holiday calendar
           </TabsTrigger>
           <TabsTrigger value="accruals">
-            <TrendingUp /> Accruals
+            Accruals
           </TabsTrigger>
         </TabsList>
 
@@ -267,7 +248,7 @@ export default function Leave() {
                         <Tip label={`Handover to ${employee(r.handoverTo)?.name ?? 'colleague'}`}>
                           <span>
                             <Badge variant="muted">
-                              <FileText /> Handover notes
+                              Handover notes
                             </Badge>
                           </span>
                         </Tip>
@@ -280,7 +261,7 @@ export default function Leave() {
                         <Tip label={`${alert} — HR has been alerted`}>
                           <span>
                             <Badge variant="warning">
-                              <AlertTriangle /> Alerts to HR
+                              Alerts to HR
                             </Badge>
                           </span>
                         </Tip>
@@ -289,10 +270,10 @@ export default function Leave() {
                     {actionable && (
                       <div className="mt-3 grid grid-cols-2 gap-2">
                         <Button size="sm" variant="outline" onClick={() => decline(r)}>
-                          <X /> Decline
+                          Decline
                         </Button>
                         <Button size="sm" onClick={() => approve(r)}>
-                          <Check /> Approve
+                          Approve
                         </Button>
                       </div>
                     )}
@@ -306,7 +287,7 @@ export default function Leave() {
 
         <TabsContent value="mine">
           {mine.length === 0 ? (
-            <EmptyState icon={CalendarDays} title="No leave requests yet" description="Apply for leave and track every approval step here." action={<Button onClick={() => setApplyOpen(true)}>Apply leave</Button>} />
+            <EmptyState title="No leave requests yet" description="Apply for leave and track every approval step here." action={<Button onClick={() => setApplyOpen(true)}>Apply leave</Button>} />
           ) : (
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
               {[...mine]
@@ -387,19 +368,16 @@ function timelineFor(r: LeaveRequest): TimelineItem[] {
   const route: ('Manager' | 'HR' | 'CEO')[] = needsCEO(r.days, r.type) ? ['Manager', 'HR', 'CEO'] : ['Manager', 'HR']
   const labels = { Manager: 'Manager review', HR: 'HR review', CEO: 'CEO review' }
   const currentIdx = r.status === 'Pending' ? route.indexOf(r.stage as 'Manager') : route.length
-  const items: TimelineItem[] = [{ title: 'Submitted', meta: formatDate(r.submitted, 'short'), icon: Send, state: 'done' }]
+  const items: TimelineItem[] = [{ title: 'Submitted', meta: formatDate(r.submitted, 'short'), state: 'done' }]
   route.forEach((step, i) => {
-    const rejectedHere = r.status === 'Rejected' && i === route.length - 1
     items.push({
       title: labels[step],
-      icon: rejectedHere ? XCircle : i < currentIdx ? CheckCircle2 : Clock,
       state: r.status === 'Rejected' ? 'done' : i < currentIdx ? 'done' : i === currentIdx ? 'current' : 'upcoming',
       meta: r.status === 'Pending' && i === currentIdx ? 'In progress' : undefined,
     })
   })
   items.push({
     title: r.status === 'Rejected' ? 'Declined' : r.status === 'Approved' ? 'Approved — enjoy your time off' : 'Final decision',
-    icon: r.status === 'Rejected' ? XCircle : Flag,
     state: r.status === 'Pending' ? 'upcoming' : 'done',
   })
   return items
@@ -424,11 +402,7 @@ function HolidayCalendar({ holidays }: { holidays: { date: string; name: string;
         return (
           <motion.div key={country} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: ci * 0.05 }}>
             <Section
-              title={
-                <span className="flex items-center gap-2">
-                  <Globe className="size-4 text-muted-foreground" /> {country}
-                </span>
-              }
+              title={country}
               description={`${list.length} public holidays in 2026`}
               action={next && <Badge variant="soft">Next in {daysUntil(next.date)} days</Badge>}
             >

@@ -2,20 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
-import {
-  ArrowRight,
-  FolderLock,
-  Gauge,
-  LoaderCircle,
-  Menu,
-  Moon,
-  Play,
-  Plug,
-  Sparkles,
-  Star,
-  Sun,
-  type LucideIcon,
-} from 'lucide-react'
+import { LoaderCircle, Menu, Moon, Sun } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -105,7 +92,7 @@ function Nav({ onDemo }: { onDemo: () => void }) {
           </Button>
           <Button asChild className="hidden sm:inline-flex">
             <Link to="/signup">
-              Start free <ArrowRight />
+              Start free
             </Link>
           </Button>
           <Sheet>
@@ -176,11 +163,11 @@ function Hero({ onDemo }: { onDemo: () => void }) {
           >
             <Button asChild size="xl">
               <Link to="/signup">
-                Start Free Company Workspace <ArrowRight />
+                Start Free Company Workspace
               </Link>
             </Button>
             <Button size="xl" variant="outline" onClick={onDemo}>
-              <Play /> Book Demo
+              Book Demo
             </Button>
           </motion.div>
         </div>
@@ -247,11 +234,11 @@ function Workflow() {
 }
 
 function Why() {
-  const metrics: { value?: number; suffix?: string; title: string; label: string; body: string; icon: LucideIcon }[] = [
-    { value: 90, suffix: '%', title: 'Less Manual HR Work', label: 'less manual HR work', body: 'Approvals, reminders and document chasing run on rules you define.', icon: Sparkles },
-    { value: 100, suffix: '%', title: 'Digital Employee Files', label: 'digital employee files', body: 'Contracts, IDs, KRA PINs and sign-offs stored securely per employee.', icon: FolderLock },
-    { title: 'Automated', label: 'Performance cycles', body: 'Reviews open, remind and close themselves, with calibration built in.', icon: Gauge },
-    { title: 'Payroll Ready', label: 'Integrations', body: 'Export to Odoo, QuickBooks or your bank file with statutory deductions applied.', icon: Plug },
+  const metrics: { value?: number; suffix?: string; title: string; label: string; body: string }[] = [
+    { value: 90, suffix: '%', title: 'Less Manual HR Work', label: 'less manual HR work', body: 'Approvals, reminders and document chasing run on rules you define.' },
+    { value: 100, suffix: '%', title: 'Digital Employee Files', label: 'digital employee files', body: 'Contracts, IDs, KRA PINs and sign-offs stored securely per employee.' },
+    { title: 'Automated', label: 'Performance cycles', body: 'Reviews open, remind and close themselves, with calibration built in.' },
+    { title: 'Payroll Ready', label: 'Integrations', body: 'Export to Odoo, QuickBooks or your bank file with statutory deductions applied.' },
   ]
   return (
     <section id="why" className="scroll-mt-20 py-16 sm:py-24">
@@ -262,8 +249,7 @@ function Why() {
             <Reveal key={m.label} delay={i * 0.08}>
               <div className="relative h-full overflow-hidden rounded-2xl border bg-card p-6">
                 <div className="absolute -right-10 -top-10 size-32 rounded-full bg-accent/60 blur-2xl" aria-hidden />
-                <m.icon className="relative size-5 text-primary" />
-                <div className="relative mt-5 text-4xl font-bold tracking-tight tabular">
+                <div className="relative text-4xl font-bold tracking-tight tabular">
                   {m.value !== undefined ? (
                     <>
                       <AnimatedNumber value={m.value} duration={1.4} />
@@ -293,12 +279,7 @@ function Testimonials() {
           {testimonials.map((t, i) => (
             <Reveal key={t.name} delay={i * 0.1}>
               <motion.figure whileHover={{ y: -3 }} className="flex h-full flex-col rounded-2xl border bg-card p-6 shadow-sm">
-                <div className="flex gap-0.5 text-warning" aria-label="Rated 5 out of 5">
-                  {Array.from({ length: 5 }).map((_, k) => (
-                    <Star key={k} className="size-4 fill-current" />
-                  ))}
-                </div>
-                <blockquote className="mt-4 flex-1 text-[15px] leading-relaxed">“{t.quote}”</blockquote>
+                <blockquote className="flex-1 text-[15px] leading-relaxed">“{t.quote}”</blockquote>
                 <figcaption className="mt-6 flex items-center gap-3">
                   <PersonAvatar name={t.name} className="size-10" />
                   <div>
@@ -326,7 +307,7 @@ function CtaBand({ onDemo }: { onDemo: () => void }) {
           <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
             <Button asChild size="xl" variant="white">
               <Link to="/signup">
-                Start Free Company Workspace <ArrowRight />
+                Start Free Company Workspace
               </Link>
             </Button>
             <Button size="xl" onClick={onDemo} className="border border-white/40 bg-white/10 text-white shadow-none hover:bg-white/20">

@@ -10,6 +10,7 @@ import { Topbar } from './Topbar'
 import { MobileBottomNav } from './MobileNav'
 import { CommandPalette } from './CommandPalette'
 import { WorkspaceSwitcher } from './WorkspaceSwitcher'
+import { BrandTheme } from './BrandTheme'
 
 export function AppShell() {
   const location = useLocation()
@@ -37,6 +38,7 @@ export function AppShell() {
 
   return (
     <NotificationsProvider>
+      <BrandTheme />
       <div className="flex min-h-dvh bg-subtle">
         <Sidebar collapsed={collapsed} onToggle={() => setCollapsed((c) => !c)} />
 

@@ -1,17 +1,16 @@
 import { eachDayOfInterval, format, isWeekend, parseISO } from 'date-fns'
-import { Baby, BookOpen, HeartHandshake, HeartPulse, TreePalm, Users, type LucideIcon } from 'lucide-react'
 import type { Holiday, LeaveRequest, LeaveType } from '@/data/types'
 import { SERIES } from '@/components/charts/ChartKit'
 
 export const LEAVE_TYPES: LeaveType[] = ['Annual', 'Sick', 'Maternity', 'Paternity', 'Compassionate', 'Study']
 
-export const leaveMeta: Record<LeaveType, { entitlement: number; icon: LucideIcon; color: string; note: string }> = {
-  Annual: { entitlement: 21, icon: TreePalm, color: SERIES[0], note: 'Accrues 1.75 days / month' },
-  Sick: { entitlement: 30, icon: HeartPulse, color: SERIES[1], note: 'Full pay · doctor’s note after 2 days' },
-  Maternity: { entitlement: 90, icon: Baby, color: SERIES[2], note: 'Employment Act §29' },
-  Paternity: { entitlement: 14, icon: Users, color: SERIES[3], note: 'Within 30 days of birth' },
-  Compassionate: { entitlement: 5, icon: HeartHandshake, color: SERIES[4], note: 'Bereavement & family' },
-  Study: { entitlement: 10, icon: BookOpen, color: SERIES[5], note: 'Approved exams only' },
+export const leaveMeta: Record<LeaveType, { entitlement: number; color: string; note: string }> = {
+  Annual: { entitlement: 21, color: SERIES[0], note: 'Accrues 1.75 days / month' },
+  Sick: { entitlement: 30, color: SERIES[1], note: 'Full pay · doctor’s note after 2 days' },
+  Maternity: { entitlement: 90, color: SERIES[2], note: 'Employment Act §29' },
+  Paternity: { entitlement: 14, color: SERIES[3], note: 'Within 30 days of birth' },
+  Compassionate: { entitlement: 5, color: SERIES[4], note: 'Bereavement & family' },
+  Study: { entitlement: 10, color: SERIES[5], note: 'Approved exams only' },
 }
 
 export const ANNUAL_ACCRUAL = 1.75

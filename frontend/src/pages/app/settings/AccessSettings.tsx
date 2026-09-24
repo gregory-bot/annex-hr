@@ -1,8 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { ArrowRight, Calculator, Clock, Cloud, Landmark, Mail, MessageSquare, RefreshCw, Smartphone } from 'lucide-react'
-import type { LucideIcon } from 'lucide-react'
 import { toast } from 'sonner'
 import { Section } from '@/components/shared/Section'
 import { Badge } from '@/components/ui/badge'
@@ -19,7 +17,7 @@ const ROLES = Object.keys(roleLabels) as Role[]
 /* --------------------------- Roles & permissions -------------------------- */
 
 export function RolesPermissions() {
-  const { switchRole, role: current } = useAuth()
+  const { switchRole, role: current, demoSession } = useAuth()
   const navigate = useNavigate()
   const [matrix, setMatrix] = useState<Record<string, Role[]>>(() =>
     Object.fromEntries(navItems.map((n) => [n.key, n.roles === 'all' ? [...ROLES] : [...n.roles]])),
@@ -64,14 +62,10 @@ export function RolesPermissions() {
             </thead>
             <tbody>
               {navItems.map((n) => {
-                const Icon = n.icon
                 return (
                   <tr key={n.key} className="border-b last:border-0 hover:bg-muted/30">
                     <td className="sticky left-0 z-10 bg-card px-4 py-2.5">
-                      <span className="flex items-center gap-2 font-medium">
-                        <Icon className="size-4 text-muted-foreground" />
-                        {n.label}
-                      </span>
+                      <span className="font-medium">{n.label}</span>
                     </td>
                     {ROLES.map((r) => {
                       const locked = r === 'super_admin' || (n.key === 'dashboard')
@@ -94,6 +88,7 @@ export function RolesPermissions() {
         </div>
       </Section>
 
+      {demoSession && (
       <Section title="Preview as role" description="See Annex HR exactly as each role does. Your admin session is kept.">
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
           {ROLES.map((r, i) => (
@@ -121,11 +116,11 @@ export function RolesPermissions() {
                 </div>
                 <div className="mt-0.5 text-xs text-muted-foreground">{roleDescriptions[r]}</div>
               </div>
-              <ArrowRight className="mt-0.5 size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />
             </motion.button>
           ))}
         </div>
       </Section>
+      )}
     </div>
   )
 }
@@ -137,7 +132,6 @@ interface Integration {
   name: string
   category: string
   description: string
-  icon: LucideIcon
   connected: boolean
   enabled: boolean
   lastSync?: string
@@ -145,13 +139,13 @@ interface Integration {
 }
 
 const INTEGRATIONS: Integration[] = [
-  { id: 'odoo', name: 'Odoo', category: 'Payroll & accounting', description: 'Post approved payroll journals, final dues and expense claims to Odoo Accounting.', icon: Calculator, connected: true, enabled: true, lastSync: 'Today, 07:42' },
-  { id: 'itax', name: 'KRA iTax', category: 'Statutory', description: 'Generate P10 returns and PAYE schedules ready for iTax upload.', icon: Landmark, connected: false, enabled: false, placeholder: true },
-  { id: 'mpesa', name: 'M-Pesa B2C', category: 'Payouts', description: 'Pay casuals, consultants and reimbursements straight to M-Pesa wallets.', icon: Smartphone, connected: true, enabled: true, lastSync: 'Yesterday, 18:05' },
-  { id: 'google', name: 'Google Workspace', category: 'Identity & email', description: 'Provision accounts on hire and suspend them on exit. Sync org units.', icon: Mail, connected: true, enabled: true, lastSync: 'Today, 09:10' },
-  { id: 'm365', name: 'Microsoft 365', category: 'Identity & email', description: 'Entra ID user provisioning and Outlook calendar sync for leave.', icon: Cloud, connected: false, enabled: false },
-  { id: 'slack', name: 'Slack', category: 'Collaboration', description: 'Approve leave from Slack, post birthdays and new-joiner announcements.', icon: MessageSquare, connected: false, enabled: false },
-  { id: 'bio', name: 'Biometric clock-in', category: 'Time & attendance', description: 'ZKTeco and Suprema terminals push clock-ins every 5 minutes.', icon: Clock, connected: true, enabled: true, lastSync: '4 min ago' },
+  { id: 'odoo', name: 'Odoo', category: 'Payroll & accounting', description: 'Post approved payroll journals, final dues and expense claims to Odoo Accounting.', connected: true, enabled: true, lastSync: 'Today, 07:42' },
+  { id: 'itax', name: 'KRA iTax', category: 'Statutory', description: 'Generate P10 returns and PAYE schedules ready for iTax upload.', connected: false, enabled: false, placeholder: true },
+  { id: 'mpesa', name: 'M-Pesa B2C', category: 'Payouts', description: 'Pay casuals, consultants and reimbursements straight to M-Pesa wallets.', connected: true, enabled: true, lastSync: 'Yesterday, 18:05' },
+  { id: 'google', name: 'Google Workspace', category: 'Identity & email', description: 'Provision accounts on hire and suspend them on exit. Sync org units.', connected: true, enabled: true, lastSync: 'Today, 09:10' },
+  { id: 'm365', name: 'Microsoft 365', category: 'Identity & email', description: 'Entra ID user provisioning and Outlook calendar sync for leave.', connected: false, enabled: false },
+  { id: 'slack', name: 'Slack', category: 'Collaboration', description: 'Approve leave from Slack, post birthdays and new-joiner announcements.', connected: false, enabled: false },
+  { id: 'bio', name: 'Biometric clock-in', category: 'Time & attendance', description: 'ZKTeco and Suprema terminals push clock-ins every 5 minutes.', connected: true, enabled: true, lastSync: '4 min ago' },
 ]
 
 export function Integrations() {
@@ -174,7 +168,6 @@ export function Integrations() {
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
       {items.map((it, i) => {
-        const Icon = it.icon
         return (
           <motion.div
             key={it.id}
@@ -185,14 +178,9 @@ export function Integrations() {
             className="flex flex-col rounded-xl border bg-card p-4 shadow-[0_1px_2px_rgba(16,24,40,0.04)]"
           >
             <div className="flex items-start justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="flex size-10 items-center justify-center rounded-xl bg-accent text-primary">
-                  <Icon className="size-5" />
-                </div>
-                <div>
-                  <div className="font-semibold">{it.name}</div>
-                  <div className="text-xs text-muted-foreground">{it.category}</div>
-                </div>
+              <div className="min-w-0">
+                <div className="font-semibold tracking-tight">{it.name}</div>
+                <div className="text-xs text-muted-foreground">{it.category}</div>
               </div>
               {it.connected ? (
                 <Switch
@@ -216,7 +204,7 @@ export function Integrations() {
                     <div className="mt-1 truncate text-[11px] text-muted-foreground">Last sync {it.lastSync}</div>
                   </div>
                   <Button variant="ghost" size="sm" disabled={!it.enabled} onClick={() => toast.success(`${it.name} sync started`)}>
-                    <RefreshCw /> Sync now
+                    Sync now
                   </Button>
                 </>
               ) : (

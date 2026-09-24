@@ -1,7 +1,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { Banknote, Check, CheckCircle2, Clock, Hourglass, Landmark, RefreshCw, ShieldCheck, Wallet } from 'lucide-react'
+import { Check, RefreshCw } from 'lucide-react'
 import { toast } from 'sonner'
 import { api, errorMessage, USE_MOCK_API } from '@/lib/api'
 import { useWorkspace } from '@/context/auth'
@@ -108,10 +108,10 @@ export function OverviewTab({
   return (
     <div className="grid grid-cols-1 gap-4">
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-        <StatCard index={0} label="Gross payroll · Sept" value={current.gross} format={compact} icon={Wallet} delta={1.2} deltaLabel="vs Aug" />
-        <StatCard index={1} label="Net pay" value={current.net} format={compact} icon={Banknote} hint={`${formatNumber(current.employees)} employees`} />
-        <StatCard index={2} label="Statutory deductions" value={statutory} format={compact} icon={Landmark} hint="PAYE · SHIF · NSSF · AHL" />
-        <StatCard index={3} label="Pending approvals" value={pendingApprovals} icon={Hourglass} tone={pendingApprovals ? 'warning' : 'success'} hint="Payroll, dues, timesheets" />
+        <StatCard index={0} label="Gross payroll · Sept" value={current.gross} format={compact} delta={1.2} deltaLabel="vs Aug" />
+        <StatCard index={1} label="Net pay" value={current.net} format={compact} hint={`${formatNumber(current.employees)} employees`} />
+        <StatCard index={2} label="Statutory deductions" value={statutory} format={compact} hint="PAYE · SHIF · NSSF · AHL" />
+        <StatCard index={3} label="Pending approvals" value={pendingApprovals} tone={pendingApprovals ? 'warning' : 'success'} hint="Payroll, dues, timesheets" />
       </div>
 
       {/* Hero: pending payroll */}
@@ -144,22 +144,22 @@ export function OverviewTab({
               <div className="mt-5 flex flex-wrap gap-2">
                 {current.status === 'Pending Approval' && canApprove && (
                   <Button onClick={approve}>
-                    <CheckCircle2 /> Approve payroll
+                    Approve payroll
                   </Button>
                 )}
                 {current.status === 'Pending Approval' && !canApprove && (
                   <Badge variant="muted" className="h-9 px-3 text-xs">
-                    <Clock /> Awaiting CEO sign-off
+                    Awaiting CEO sign-off
                   </Badge>
                 )}
                 {current.status === 'Approved' && (
                   <Button onClick={sync} disabled={syncing}>
-                    <RefreshCw className={cn(syncing && 'animate-spin')} /> {syncing ? 'Syncing…' : 'Sync to Odoo'}
+                    {syncing ? 'Syncing…' : 'Sync to Odoo'}
                   </Button>
                 )}
                 {current.status === 'Synced to Odoo' && (
                   <Badge variant="info" className="h-9 px-3 text-xs">
-                    <Check /> Synced to Odoo · SAL/2026/09
+                    Synced to Odoo · SAL/2026/09
                   </Badge>
                 )}
                 <Button variant="outline" onClick={onReviewRun}>
@@ -276,9 +276,7 @@ export function OverviewTab({
               </div>
             ))}
             <div className="mt-1 flex items-center justify-between border-t pt-3 text-sm">
-              <span className="flex items-center gap-1.5 text-muted-foreground">
-                <ShieldCheck className="size-4" /> Due to KRA by 9 Oct
-              </span>
+              <span className="text-muted-foreground">Due to KRA by 9 Oct</span>
               <span className="font-semibold tabular">{formatKES(statutory)}</span>
             </div>
           </div>

@@ -3,7 +3,7 @@ import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { AppShell } from '@/components/layout/AppShell'
 import { PageSkeleton } from '@/components/shared/PageSkeleton'
 import { useAuth } from '@/context/auth'
-import { canAccess } from '@/lib/rbac'
+import { canAccess, isSelfServiceRole } from '@/lib/rbac'
 import Forbidden from '@/pages/app/Forbidden'
 
 const Landing = lazy(() => import('@/pages/landing/Landing'))
@@ -15,6 +15,7 @@ const AcceptInvite = lazy(() => import('@/pages/auth/AcceptInvite'))
 
 const Dashboard = lazy(() => import('@/pages/app/Dashboard'))
 const People = lazy(() => import('@/pages/app/People'))
+const EmployeeProfile = lazy(() => import('@/pages/app/EmployeeProfile'))
 const Departments = lazy(() => import('@/pages/app/Departments'))
 const Tickets = lazy(() => import('@/pages/app/Tickets'))
 const Onboarding = lazy(() => import('@/pages/app/Onboarding'))
@@ -46,8 +47,15 @@ function Guard({ module, children }: { module: string; children: React.ReactNode
   return canAccess(role, module) ? <>{children}</> : <Forbidden />
 }
 
-const modules: [string, React.LazyExoticComponent<() => React.JSX.Element>][] = [
-  ['people', People],
+/** Employees and consultants have no company directory — People opens their own profile. */
+function PeopleIndex() {
+  const { role, user } = useAuth()
+  if (isSelfServiceRole(role) && user) return <Navigate to={`/app/people/${user.id}`} replace />
+  return <People />
+}
+
+const modules: [string, React.ComponentType][] = [
+  ['people', PeopleIndex],
   ['departments', Departments],
   ['tickets', Tickets],
   ['onboarding', Onboarding],
@@ -104,6 +112,16 @@ export default function App() {
               }
             />
           ))}
+          <Route
+            path="people/:id"
+            element={
+              <Guard module="people">
+                <Suspense fallback={<PageSkeleton />}>
+                  <EmployeeProfile />
+                </Suspense>
+              </Guard>
+            }
+          />
           <Route
             path="notifications"
             element={

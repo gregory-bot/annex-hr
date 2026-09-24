@@ -66,7 +66,8 @@ def optional_auth(request: Request) -> AuthContext | None:
         p = jwt.decode(token, settings.JWT_SECRET, algorithms=["HS256"], issuer=ISSUER)
     except jwt.PyJWTError:
         return None
-    return AuthContext(userId=p["userId"], employeeId=p["employeeId"], workspaceId=p["workspaceId"], role=p["role"], demo=bool(p.get("demo")))
+    ctx = AuthContext(userId=p["userId"], employeeId=p["employeeId"], workspaceId=p["workspaceId"], role=p["role"], demo=bool(p.get("demo")))
+    return None if ctx.demo and not _is_demo_workspace(ctx.workspaceId) else ctx
 
 
 def require_auth(request: Request) -> AuthContext:
@@ -79,8 +80,17 @@ def require_auth(request: Request) -> AuthContext:
     except jwt.PyJWTError as exc:
         raise unauthorized("Session expired — please sign in again") from exc
     ctx = AuthContext(userId=p["userId"], employeeId=p["employeeId"], workspaceId=p["workspaceId"], role=p["role"], demo=bool(p.get("demo")))
+    if ctx.demo and not _is_demo_workspace(ctx.workspaceId):
+        # A "View as" session inside a real company (possible before switching was restricted) — sign in again.
+        raise unauthorized("Please sign in again")
     request.state.auth = ctx
     return ctx
+
+
+def _is_demo_workspace(workspace_id: str) -> bool:
+    from .demo import is_demo_workspace  # local import: demo.py imports this module
+
+    return is_demo_workspace(workspace_id)
 
 
 def require_role(*roles: str):
@@ -115,6 +125,10 @@ _hits: dict[tuple[str, str], deque[float]] = defaultdict(deque)
 
 
 def rate_limit(bucket: str, limit: int = 30, window_seconds: int = 15 * 60):
+    # Generous outside production so local testing never locks you out of your own workspace.
+    if not settings.is_prod:
+        limit *= 20
+
     def dep(request: Request) -> None:
         ip = request.client.host if request.client else "unknown"
         key = (bucket, ip)

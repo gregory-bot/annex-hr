@@ -52,6 +52,9 @@ class Settings(BaseSettings):
     ENABLE_DEMO_LOGIN: bool = False
     SEED_DEFAULT_PASSWORD: str = Field(default="AnnexDemo#2026", min_length=8)
 
+    # Custom domains: customers point a CNAME at this host before their domain is marked verified.
+    CUSTOM_DOMAIN_TARGET: str = "cname.annexhr.com"
+
     # Email — provider "auto" tries Resend, then Brevo, then SMTP, then logs to the console.
     EMAIL_PROVIDER: str = "auto"
     EMAIL_FROM_ADDRESS: str = "noreply@annexhr.com"

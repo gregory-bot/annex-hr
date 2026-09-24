@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { BellRing, Briefcase, Check, ChevronDown, ChevronLeft, ChevronRight, Clock, Hourglass, Plus, Receipt, Save, Send, Users, Wallet, X } from 'lucide-react'
+import { ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react'
 import { toast } from 'sonner'
 import type { Employee, Timesheet } from '@/data/types'
 import { useWorkspace } from '@/context/auth'
@@ -152,7 +152,7 @@ function ConsultantView({ sheets, setSheets, user }: { sheets: Timesheet[]; setS
             >
               <Input value={newProject} onChange={(e) => setNewProject(e.target.value)} placeholder="Add project, e.g. Equity Bank Onboarding" className="h-9 sm:w-72" />
               <Button type="submit" variant="outline" disabled={!newProject.trim()}>
-                <Plus /> Add
+                Add
               </Button>
             </form>
             <div className="grid grid-cols-2 gap-2 sm:flex">
@@ -163,7 +163,7 @@ function ConsultantView({ sheets, setSheets, user }: { sheets: Timesheet[]; setS
                   toast.success('Draft saved', { description: `${fmtH(total)} hours for ${weekLabel(week)}` })
                 }}
               >
-                <Save /> Save draft
+                Save draft
               </Button>
               <Button
                 disabled={total === 0}
@@ -172,7 +172,7 @@ function ConsultantView({ sheets, setSheets, user }: { sheets: Timesheet[]; setS
                   toast.success('Timesheet submitted for approval', { description: `${fmtH(total)} h · ${formatKES(billable * rate)} billable` })
                 }}
               >
-                <Send /> Submit
+                Submit
               </Button>
             </div>
           </div>
@@ -283,10 +283,10 @@ function ApproverView({
   return (
     <div className="grid grid-cols-1 gap-4">
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-        <StatCard index={0} label="Active consultants" value={consultants} icon={Users} />
-        <StatCard index={1} label="Hours this month" value={hours} icon={Clock} format={(n) => fmtH(Math.round(n))} />
-        <StatCard index={2} label="Billable hours" value={billable} icon={Wallet} format={(n) => fmtH(Math.round(n))} hint={<span>{hours ? Math.round((billable / hours) * 100) : 0}% of logged</span>} />
-        <StatCard index={3} label="Pending approvals" value={pending.length} icon={Hourglass} tone={pending.length ? 'warning' : 'success'} />
+        <StatCard index={0} label="Active consultants" value={consultants} />
+        <StatCard index={1} label="Hours this month" value={hours} format={(n) => fmtH(Math.round(n))} />
+        <StatCard index={2} label="Billable hours" value={billable} format={(n) => fmtH(Math.round(n))} hint={<span>{hours ? Math.round((billable / hours) * 100) : 0}% of logged</span>} />
+        <StatCard index={3} label="Pending approvals" value={pending.length} tone={pending.length ? 'warning' : 'success'} />
       </div>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
@@ -306,7 +306,7 @@ function ApproverView({
           }
         >
           {rows.length === 0 ? (
-            <EmptyState icon={Check} title={filter === 'Pending' ? 'All caught up' : `No ${filter.toLowerCase()} timesheets`} description="Submitted timesheets appear here for review." />
+            <EmptyState title={filter === 'Pending' ? 'All caught up' : `No ${filter.toLowerCase()} timesheets`} description="Submitted timesheets appear here for review." />
           ) : (
             <div className="grid grid-cols-1 gap-2">
               <AnimatePresence initial={false}>
@@ -354,10 +354,10 @@ function ApproverView({
                                   />
                                   <div className="grid grid-cols-2 gap-2">
                                     <Button variant="outline" onClick={() => decide(s, 'Rejected')}>
-                                      <X /> Reject
+                                      Reject
                                     </Button>
                                     <Button onClick={() => decide(s, 'Approved')}>
-                                      <Check /> Approve
+                                      Approve
                                     </Button>
                                   </div>
                                 </div>
@@ -409,7 +409,6 @@ function ApproverView({
                         toast.success(`Reminder sent to ${manager.name.split(' ')[0]}`, { description: `${count} timesheet${count === 1 ? '' : 's'} awaiting approval` })
                       }}
                     >
-                      {sent ? <Check /> : <BellRing />}
                       {sent ? 'Sent' : 'Send reminder'}
                     </Button>
                   </li>
@@ -422,7 +421,7 @@ function ApproverView({
 
       <Section title="Billable vs non-billable hours by project" description="September 2026 · all consultants" action={<Legend items={series.map((s) => ({ label: s.label, color: s.color }))} />}>
         {byProject.length === 0 ? (
-          <EmptyState icon={Briefcase} title="No hours logged yet" />
+          <EmptyState title="No hours logged yet" />
         ) : (
           <ResponsiveContainer width="100%" height={260}>
             <BarChart data={byProject} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
@@ -439,15 +438,10 @@ function ApproverView({
       </Section>
 
       <Card className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-3">
-          <div className="flex size-9 items-center justify-center rounded-lg bg-accent text-primary">
-            <Receipt className="size-4" />
-          </div>
-          <div>
-            <div className="text-sm font-semibold">Approved hours flow to invoicing</div>
-            <div className="text-xs text-muted-foreground">
-              {formatKES(sheets.filter((s) => s.status === 'Approved' && inSeptember(s.week)).reduce((a, s) => a + sheetBillable(s) * s.rate, 0))} approved for September billing
-            </div>
+        <div>
+          <div className="text-sm font-semibold">Approved hours flow to invoicing</div>
+          <div className="text-xs text-muted-foreground">
+            {formatKES(sheets.filter((s) => s.status === 'Approved' && inSeptember(s.week)).reduce((a, s) => a + sheetBillable(s) * s.rate, 0))} approved for September billing
           </div>
         </div>
         <Button variant="outline" size="sm" onClick={() => toast.success('Invoice draft generated', { description: 'Sent to Finance for review in Odoo.' })}>

@@ -1,4 +1,3 @@
-import { Download, FileSpreadsheet, FileText } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
@@ -24,15 +23,15 @@ export function ExportMenu({ filename, rows }: { filename: string; rows?: Record
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="outline">
-          <Download /> Export
+          Export
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuItem onSelect={() => setTimeout(() => window.print(), 100)}>
-          <FileText /> Export PDF
+          Export PDF
         </DropdownMenuItem>
         <DropdownMenuItem onSelect={exportCsv}>
-          <FileSpreadsheet /> Export Excel
+          Export Excel
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

@@ -1,6 +1,5 @@
 import { useMemo } from 'react'
 import { motion } from 'framer-motion'
-import { Crown, ShieldAlert } from 'lucide-react'
 import { useWorkspace } from '@/context/auth'
 import type { Employee } from '@/data/types'
 import { Badge } from '@/components/ui/badge'
@@ -105,14 +104,9 @@ export function SuccessionTab() {
           <motion.div key={dept.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }} whileHover={{ y: -2 }}>
             <Card className="h-full p-5">
               <div className="flex items-start justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <span className="flex size-9 items-center justify-center rounded-lg bg-accent text-accent-foreground">
-                    <Crown className="size-4" />
-                  </span>
-                  <div className="min-w-0">
-                    <div className="font-semibold">{head.title}</div>
-                    <div className="truncate text-xs text-muted-foreground">Incumbent: {head.name}</div>
-                  </div>
+                <div className="min-w-0">
+                  <div className="font-semibold">{head.title}</div>
+                  <div className="truncate text-xs text-muted-foreground">Incumbent: {head.name}</div>
                 </div>
                 <Badge variant={successors.some((s) => readinessOf(s) === 'Ready now') ? 'success' : 'warning'} dot>
                   {successors.some((s) => readinessOf(s) === 'Ready now') ? 'Covered' : 'Gap'}
@@ -135,7 +129,7 @@ export function SuccessionTab() {
                       <div className="flex shrink-0 flex-col items-end gap-1">
                         <Badge variant={r === 'Ready now' ? 'success' : r === '1–2 yrs' ? 'info' : 'muted'}>{r}</Badge>
                         <span className={cn('inline-flex items-center gap-1 text-[11px]', risk === 'High' ? 'text-danger' : risk === 'Medium' ? 'text-warning' : 'text-muted-foreground')}>
-                          {risk !== 'Low' && <ShieldAlert className="size-3" />}
+                          {risk !== 'Low' && <span className="size-1.5 rounded-full bg-current" />}
                           {risk} flight risk
                         </span>
                       </div>

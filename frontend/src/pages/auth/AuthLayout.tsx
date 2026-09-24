@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { CalendarDays, Moon, ShieldCheck, Star, Sun, Users, Wallet } from 'lucide-react'
+import { Moon, Sun } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { PersonAvatar } from '@/components/ui/avatar'
 import { Logo } from '@/components/shared/Logo'
@@ -23,7 +23,7 @@ function BrandPanel({ children }: { children?: React.ReactNode }) {
       <div className="pointer-events-none absolute -bottom-40 -left-20 size-[28rem] rounded-full bg-black/15 blur-3xl" aria-hidden />
       <div className="relative">
         <span className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-3 py-1 text-xs font-medium">
-          <ShieldCheck className="size-3.5" /> Isolated, encrypted company workspaces
+          <span className="size-1.5 rounded-full bg-white" aria-hidden /> Isolated, encrypted company workspaces
         </span>
       </div>
 
@@ -37,9 +37,9 @@ function BrandPanel({ children }: { children?: React.ReactNode }) {
               className="mb-10 grid max-w-sm grid-cols-3 gap-3"
             >
               {[
-                { icon: Users, label: 'Employees', value: '248' },
-                { icon: CalendarDays, label: 'On leave', value: '9' },
-                { icon: Wallet, label: 'Payroll', value: 'Ready' },
+                { label: 'Employees', value: '248' },
+                { label: 'On leave', value: '9' },
+                { label: 'Payroll', value: 'Ready' },
               ].map((s, i) => (
                 <motion.div
                   key={s.label}
@@ -47,18 +47,12 @@ function BrandPanel({ children }: { children?: React.ReactNode }) {
                   transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut', delay: i * 0.6 }}
                   className="rounded-xl border border-white/20 bg-white/10 p-3 backdrop-blur"
                 >
-                  <s.icon className="size-4 opacity-80" />
-                  <div className="mt-2 text-lg font-bold">{s.value}</div>
                   <div className="text-[11px] text-white/75">{s.label}</div>
+                  <div className="mt-1 text-lg font-bold tabular">{s.value}</div>
                 </motion.div>
               ))}
             </motion.div>
-            <div className="flex gap-0.5" aria-label="Rated 5 out of 5">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <Star key={i} className="size-4 fill-current" />
-              ))}
-            </div>
-            <blockquote className="mt-4 max-w-md space-y-3 text-balance text-2xl font-semibold leading-snug tracking-tight">
+            <blockquote className="max-w-md space-y-3 text-balance text-2xl font-semibold leading-snug tracking-tight">
               <p>“Leave requests used to take three days to approve. Now it's one tap.</p>
               <p>Employee documents used to be scattered everywhere. Now they're all in one place.”</p>
             </blockquote>

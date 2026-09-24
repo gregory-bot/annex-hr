@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
-import { LayoutGrid, List, MailPlus, UserPlus, Users, X } from 'lucide-react'
+import { X } from 'lucide-react'
 import { toast } from 'sonner'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { SearchInput } from '@/components/shared/SearchInput'
@@ -20,8 +20,8 @@ import type { Employee, EmploymentType, EmployeeStatus } from '@/data/types'
 import { isAdminLike, roleLabels } from '@/lib/rbac'
 import { cn, formatDate } from '@/lib/utils'
 import { InviteDialog } from './people/InviteDialog'
+import { useInvites } from './people/useInvites'
 import { ProfileDrawer } from './people/ProfileDrawer'
-import type { PendingInvite } from './people/helpers'
 
 const EMPLOYMENT_TYPES: EmploymentType[] = ['Full-time', 'Contract', 'Consultant', 'Intern', 'Part-time']
 const STATUSES: EmployeeStatus[] = ['Active', 'Probation', 'On Leave', 'Onboarding', 'Notice Period', 'Exited']
@@ -52,7 +52,7 @@ export default function People() {
   const [type, setType] = useState('all')
   const [status, setStatus] = useState('all')
   const [view, setView] = useState<'table' | 'grid'>('table')
-  const [invites, setInvites] = useState<PendingInvite[]>([])
+  const { invites, send: sendInvites, resend: resendInvite, revoke: revokeInvite } = useInvites()
 
   const inviteOpen = admin && params.get('invite') === '1'
   const selectedId = params.get('id')
@@ -150,7 +150,7 @@ export default function People() {
             <ExportMenu filename={`${ws.workspace.slug}-directory`} rows={exportRows} />
             {admin && (
               <Button onClick={() => setParam('invite', '1')}>
-                <UserPlus /> Invite employees
+                Invite employees
               </Button>
             )}
           </>
@@ -163,11 +163,6 @@ export default function People() {
             <Section
               title="Pending invites"
               description={`${invites.length} awaiting acceptance`}
-              action={
-                <Button variant="ghost" size="sm" onClick={() => setInvites([])}>
-                  Clear
-                </Button>
-              }
             >
               <ul className="divide-y">
                 {invites.map((i) => (
@@ -177,7 +172,27 @@ export default function People() {
                       <Badge variant="info" dot>
                         Invited
                       </Badge>
-                      <Button variant="ghost" size="icon-sm" aria-label="Revoke invite" onClick={() => setInvites((p) => p.filter((x) => x.id !== i.id))}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() =>
+                          resendInvite(i.id)
+                            .then(() => toast.success('Invitation resent', { description: i.email }))
+                            .catch((err: Error) => toast.error('Could not resend', { description: err.message }))
+                        }
+                      >
+                        Resend
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label="Revoke invite"
+                        onClick={() =>
+                          revokeInvite(i.id)
+                            .then(() => toast.success('Invitation revoked', { description: i.email }))
+                            .catch((err: Error) => toast.error('Could not revoke', { description: err.message }))
+                        }
+                      >
                         <X />
                       </Button>
                     </div>
@@ -212,7 +227,7 @@ export default function People() {
                 setStatus('all')
               }}
             >
-              <X /> Clear filters
+              Clear filters
             </Button>
           ) : (
             <span className="text-xs text-muted-foreground lg:hidden">{filtered.length} results</span>
@@ -220,20 +235,20 @@ export default function People() {
           <div className="inline-flex rounded-lg border bg-card p-0.5" role="group" aria-label="View">
             {(
               [
-                ['table', List, 'Table'],
-                ['grid', LayoutGrid, 'Grid'],
+                ['table', 'Table'],
+                ['grid', 'Grid'],
               ] as const
-            ).map(([v, Icon, label]) => (
+            ).map(([v, label]) => (
               <button
                 key={v}
                 onClick={() => setView(v)}
                 aria-pressed={view === v}
                 className={cn(
-                  'inline-flex h-7 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium text-muted-foreground transition-colors',
+                  'inline-flex h-7 items-center rounded-md px-2.5 text-xs font-medium text-muted-foreground transition-colors',
                   view === v && 'bg-muted text-foreground',
                 )}
               >
-                <Icon className="size-3.5" /> {label}
+                {label}
               </button>
             ))}
           </div>
@@ -242,13 +257,12 @@ export default function People() {
 
       {filtered.length === 0 ? (
         <EmptyState
-          icon={Users}
           title="No one matches those filters"
           description="Try a different name, or clear the department and status filters."
           action={
             admin ? (
               <Button variant="outline" onClick={() => setParam('invite', '1')}>
-                <MailPlus /> Invite someone new
+                Invite someone new
               </Button>
             ) : undefined
           }
@@ -317,7 +331,7 @@ export default function People() {
         open={inviteOpen}
         onOpenChange={(o) => setParam('invite', o ? '1' : null)}
         departments={departments}
-        onSent={(inv) => setInvites((p) => [...inv, ...p])}
+        onSend={sendInvites}
       />
       <ProfileDrawer employee={selected} onOpenChange={(o) => !o && setParam('id', null)} onDeactivate={deactivate} />
     </div>

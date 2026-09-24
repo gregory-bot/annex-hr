@@ -1,6 +1,5 @@
 import { motion } from 'framer-motion'
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis } from 'recharts'
-import { CalendarDays, Check, CircleCheck, RefreshCw, Rocket, Users, Wallet } from 'lucide-react'
 import { PersonAvatar } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -25,10 +24,10 @@ const onboarding = [
 ]
 
 const stats = [
-  { label: 'Employees', value: '248', icon: Users },
-  { label: 'Onboarding', value: '12', icon: Rocket },
-  { label: 'Leave requests', value: '7', icon: CalendarDays },
-  { label: 'Payroll', value: 'Pending', icon: Wallet },
+  { label: 'Employees', value: '248' },
+  { label: 'Onboarding', value: '12' },
+  { label: 'Leave requests', value: '7' },
+  { label: 'Payroll', value: 'Pending' },
 ]
 
 function Float({ children, className, delay = 0, amp = 8 }: { children: React.ReactNode; className?: string; delay?: number; amp?: number }) {
@@ -83,10 +82,7 @@ export function HeroDashboard() {
                 transition={{ delay: 0.3 + i * 0.08 }}
                 className="rounded-xl border bg-subtle p-2.5"
               >
-                <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-                  <s.icon className="size-3 text-primary" />
-                  <span className="truncate">{s.label}</span>
-                </div>
+                <div className="truncate text-[10px] text-muted-foreground">{s.label}</div>
                 <div className={cn('mt-1 font-bold tabular', s.value === 'Pending' ? 'text-sm text-warning' : 'text-lg')}>{s.value}</div>
               </motion.div>
             ))}
@@ -171,9 +167,7 @@ export function HeroDashboard() {
 
       <Float className="-top-1 right-0 sm:-right-4" delay={0}>
         <div className="flex items-center gap-2 rounded-xl border bg-card px-3 py-2 shadow-xl">
-          <span className="flex size-6 items-center justify-center rounded-full bg-success-soft text-success">
-            <Check className="size-3.5" strokeWidth={3} />
-          </span>
+          <span className="size-2 shrink-0 rounded-full bg-success" aria-hidden />
           <div>
             <div className="text-[11px] font-semibold">Leave approved</div>
             <div className="text-[10px] text-muted-foreground">Faith · 5 days</div>
@@ -183,9 +177,7 @@ export function HeroDashboard() {
 
       <Float className="bottom-0 left-0 sm:-left-6" delay={1.2} amp={10}>
         <div className="flex items-center gap-2 rounded-xl border bg-card px-3 py-2 shadow-xl">
-          <span className="flex size-6 items-center justify-center rounded-full bg-accent text-primary">
-            <RefreshCw className="size-3.5" />
-          </span>
+          <span className="size-2 shrink-0 rounded-full bg-primary" aria-hidden />
           <div>
             <div className="text-[11px] font-semibold">Payroll synced to Odoo</div>
             <div className="text-[10px] text-muted-foreground">PAYE · SHIF · NSSF · Housing</div>
@@ -195,7 +187,7 @@ export function HeroDashboard() {
 
       <Float className="top-1/3 -right-2 hidden lg:block xl:-right-10" delay={2.2} amp={6}>
         <div className="flex items-center gap-2 rounded-xl border bg-card px-3 py-2 shadow-xl">
-          <CircleCheck className="size-4 text-success" />
+          <span className="size-2 shrink-0 rounded-full bg-success" aria-hidden />
           <div className="text-[11px] font-semibold">Contract signed</div>
         </div>
       </Float>

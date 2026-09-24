@@ -1,25 +1,6 @@
 import { useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import {
-  Award,
-  Download,
-  Eye,
-  FileSignature,
-  FileSpreadsheet,
-  FileText,
-  FolderOpen,
-  HardDrive,
-  Handshake,
-  Image as ImageIcon,
-  LayoutGrid,
-  List,
-  Mail,
-  RotateCcw,
-  ScrollText,
-  Upload,
-  Wallet,
-  type LucideIcon,
-} from 'lucide-react'
+import { LayoutGrid, List } from 'lucide-react'
 import { toast } from 'sonner'
 import { useWorkspace } from '@/context/auth'
 import type { DocFile } from '@/data/types'
@@ -40,36 +21,17 @@ import { SearchInput } from '@/components/shared/SearchInput'
 import { cn, formatDate, TODAY } from '@/lib/utils'
 import { DocPreview, previewText } from './documents/DocPreview'
 
-const FOLDERS: { name: string; icon: LucideIcon }[] = [
-  { name: 'Contracts', icon: FileSignature },
-  { name: 'NDAs', icon: Handshake },
-  { name: 'Offer Letters', icon: Mail },
-  { name: 'Certificates', icon: Award },
-  { name: 'Payslips', icon: Wallet },
-  { name: 'Policies', icon: ScrollText },
-]
+const FOLDERS: { name: string }[] = [{ name: 'Contracts' }, { name: 'NDAs' }, { name: 'Offer Letters' }, { name: 'Certificates' }, { name: 'Payslips' }, { name: 'Policies' }]
 
-const typeMeta: Record<DocFile['type'], { icon: LucideIcon; cls: string; label: string }> = {
-  pdf: { icon: FileText, cls: 'bg-accent text-primary', label: 'PDF' },
-  docx: { icon: FileText, cls: 'bg-info-soft text-info', label: 'DOCX' },
-  xlsx: { icon: FileSpreadsheet, cls: 'bg-success-soft text-success', label: 'XLSX' },
-  png: { icon: ImageIcon, cls: 'bg-muted text-muted-foreground', label: 'PNG' },
-}
+const typeLabel: Record<DocFile['type'], string> = { pdf: 'PDF', docx: 'DOCX', xlsx: 'XLSX', png: 'PNG' }
 
 function sizeKB(s: string) {
   const n = parseFloat(s)
   return s.includes('MB') ? n * 1000 : n
 }
 
-function FileIcon({ type, className }: { type: DocFile['type']; className?: string }) {
-  const m = typeMeta[type]
-  const Icon = m.icon
-  return (
-    <span className={cn('relative flex shrink-0 items-center justify-center rounded-lg', m.cls, className ?? 'size-10')}>
-      <Icon className="size-1/2" />
-      <span className="absolute -bottom-1 rounded bg-card px-1 text-[8px] font-bold leading-tight tracking-wide shadow-sm ring-1 ring-border">{m.label}</span>
-    </span>
-  )
+function FileType({ type, className }: { type: DocFile['type']; className?: string }) {
+  return <span className={cn('shrink-0 font-mono text-[10px] font-semibold uppercase tracking-wider text-muted-foreground', className)}>{typeLabel[type]}</span>
 }
 
 export default function Documents() {
@@ -184,9 +146,7 @@ function DocumentsView() {
         title={self ? 'My documents' : 'Documents'}
         description={self ? 'Your contract, NDA, offer letter, payslips and company policies — all in one place.' : 'Secure, versioned storage for contracts, payslips, certificates and policies.'}
         actions={
-          <Button onClick={() => setUploadOpen(true)}>
-            <Upload /> Upload
-          </Button>
+          <Button onClick={() => setUploadOpen(true)}>Upload</Button>
         }
       />
 
@@ -194,7 +154,7 @@ function DocumentsView() {
         {/* Folder rail */}
         <aside className="min-w-0">
           <div className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 pb-1 lg:hidden">
-            {[{ name: 'all', icon: FolderOpen }, ...FOLDERS].map((f) => (
+            {[{ name: 'all' }, ...FOLDERS].map((f) => (
               <button
                 key={f.name}
                 onClick={() => setFolder(f.name)}
@@ -203,7 +163,6 @@ function DocumentsView() {
                   folder === f.name ? 'border-primary bg-primary text-primary-foreground' : 'bg-card text-muted-foreground hover:text-foreground',
                 )}
               >
-                <f.icon className="size-3.5" />
                 {f.name === 'all' ? 'All files' : f.name}
                 <span className="tabular opacity-70">{f.name === 'all' ? files.length : counts[f.name]}</span>
               </button>
@@ -214,16 +173,15 @@ function DocumentsView() {
             <Card>
               <CardContent className="p-2">
                 <nav className="grid grid-cols-1 gap-0.5">
-                  {[{ name: 'all', icon: FolderOpen }, ...FOLDERS].map((f) => (
+                  {[{ name: 'all' }, ...FOLDERS].map((f) => (
                     <button
                       key={f.name}
                       onClick={() => setFolder(f.name)}
                       className={cn(
-                        'flex items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm transition-colors',
+                        'flex items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors',
                         folder === f.name ? 'bg-accent font-medium text-accent-foreground' : 'text-muted-foreground hover:bg-muted hover:text-foreground',
                       )}
                     >
-                      <f.icon className="size-4" />
                       <span className="flex-1">{f.name === 'all' ? 'All files' : f.name}</span>
                       <span className="text-xs tabular">{f.name === 'all' ? files.length : counts[f.name]}</span>
                     </button>
@@ -269,7 +227,7 @@ function DocumentsView() {
           </div>
 
           {visible.length === 0 ? (
-            <EmptyState icon={FolderOpen} title="No files found" description={q ? `Nothing matches “${q}”.` : 'Upload a file to get started.'} />
+            <EmptyState title="No files found" description={q ? `Nothing matches “${q}”.` : 'Upload a file to get started.'} />
           ) : view === 'grid' ? (
             <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 xl:grid-cols-3">
               <AnimatePresence initial={false}>
@@ -285,8 +243,8 @@ function DocumentsView() {
                     onClick={() => setPreviewId(f.id)}
                     className="group flex flex-col rounded-xl border bg-card p-4 text-left shadow-[0_1px_2px_rgba(16,24,40,0.04)] transition-shadow hover:shadow-lg hover:shadow-black/[0.04]"
                   >
-                    <div className="flex items-start justify-between gap-2">
-                      <FileIcon type={f.type} />
+                    <div className="flex items-center justify-between gap-2">
+                      <FileType type={f.type} />
                       <Badge variant="muted">{f.version}</Badge>
                     </div>
                     <div className="mt-3 line-clamp-2 text-sm font-medium">{f.name}</div>
@@ -315,7 +273,7 @@ function DocumentsView() {
                   <li key={f.id}>
                     <button onClick={() => setPreviewId(f.id)} className="grid grid-cols-1 w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/50 md:grid-cols-[minmax(0,1fr)_70px_80px_110px_160px]">
                       <span className="flex min-w-0 items-center gap-3">
-                        <FileIcon type={f.type} className="size-9" />
+                        <FileType type={f.type} className="w-9" />
                         <span className="min-w-0">
                           <span className="block truncate text-sm font-medium">{f.name}</span>
                           <span className="block text-xs text-muted-foreground md:hidden">
@@ -377,9 +335,9 @@ function DocumentsView() {
         <SheetContent className="sm:max-w-2xl">
           {preview && (
             <div className="flex flex-col">
-              <div className="flex items-start gap-3 border-b p-5 pr-12">
-                <FileIcon type={preview.type} />
+              <div className="border-b p-5 pr-12">
                 <div className="min-w-0">
+                  <FileType type={preview.type} className="mb-1 block" />
                   <SheetTitle className="text-base leading-snug">{preview.name}</SheetTitle>
                   <SheetDescription className="mt-0.5 text-xs">
                     {preview.folder} · {preview.version} · {preview.size} · Updated {formatDate(preview.updated)}
@@ -389,10 +347,10 @@ function DocumentsView() {
               <div className="grid grid-cols-1 gap-5 p-5">
                 <div className="flex flex-wrap gap-2">
                   <Button onClick={() => download(preview)}>
-                    <Download /> Download
+                    Download
                   </Button>
                   <Button variant="outline" onClick={() => toast.success('Secure share link copied — expires in 7 days')}>
-                    <Eye /> Share view-only link
+                    Share view-only link
                   </Button>
                 </div>
                 <div className="rounded-xl bg-muted/60 p-2 sm:p-4">
@@ -419,7 +377,7 @@ function DocumentsView() {
                           </Badge>
                         ) : (
                           <Button size="sm" variant="ghost" onClick={() => restore(preview, v.version)}>
-                            <RotateCcw /> Restore
+                            Restore
                           </Button>
                         )}
                       </li>
@@ -440,15 +398,10 @@ function StorageCard({ used, total }: { used: number; total: number }) {
   return (
     <Card>
       <CardContent className="p-4">
-        <div className="flex items-center gap-3">
-          <span className="flex size-9 items-center justify-center rounded-lg bg-accent text-accent-foreground">
-            <HardDrive className="size-4" />
-          </span>
-          <div className="min-w-0">
-            <div className="text-sm font-semibold">Storage</div>
-            <div className="text-xs text-muted-foreground tabular">
-              {used < 1 ? `${Math.round(used * 1000)} MB` : `${used} GB`} of {total} GB used
-            </div>
+        <div className="min-w-0">
+          <div className="text-sm font-semibold">Storage</div>
+          <div className="text-xs text-muted-foreground tabular">
+            {used < 1 ? `${Math.round(used * 1000)} MB` : `${used} GB`} of {total} GB used
           </div>
         </div>
         <Progress value={Math.max(pct, 1.5)} className="mt-3 h-1.5" />

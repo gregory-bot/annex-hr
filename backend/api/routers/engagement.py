@@ -9,10 +9,10 @@ from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
 from ..audit import audit
-from ..db import iso, query, query_one
+from ..db import iso, query, query_one, tx
 from ..errors import bad_request, parse
-from ..repository import owned, to_notification, to_survey
-from ..roles import ADMIN, EXEC
+from ..repository import NOTIFICATION_SELECT, owned, to_notification, to_survey
+from ..roles import ADMIN, EXEC, is_exec
 from ..security import AuthContext, require_auth, require_role
 
 router = APIRouter()
@@ -104,28 +104,41 @@ def patch_kpi(id: str, body: Any = Body(default=None), auth: AuthContext = Depen
 # ── Notifications ───────────────────────────────────────────────────
 @router.get("/notifications")
 def list_notifications(auth: AuthContext = Depends(require_auth)):
-    rows = query(
-        "SELECT * FROM notifications WHERE workspace_id = $1 AND (recipient_id IS NULL OR recipient_id = $2) ORDER BY created_at DESC LIMIT 100",
-        [auth.workspaceId, auth.employeeId],
-    )
+    rows = query(f"{NOTIFICATION_SELECT} LIMIT 100", [auth.workspaceId, auth.employeeId, is_exec(auth.role)])
     return [to_notification(n) for n in rows]
+
+
+def _visible_ids(auth: AuthContext, only: str | None = None) -> list[dict]:
+    extra = "AND v.id = $4" if only else ""
+    params = [auth.workspaceId, auth.employeeId, is_exec(auth.role)] + ([only] if only else [])
+    return query(f"SELECT v.id FROM ({NOTIFICATION_SELECT}) v WHERE NOT v.read {extra}", params)
 
 
 @router.post("/notifications/read-all")
 def read_all_notifications(auth: AuthContext = Depends(require_auth)):
-    query(
-        "UPDATE notifications SET read = true WHERE workspace_id = $1 AND (recipient_id IS NULL OR recipient_id = $2) AND NOT read",
-        [auth.workspaceId, auth.employeeId],
-    )
+    with tx() as db:
+        # Direct notifications carry their own flag; workspace-wide ones are marked read for this person only.
+        query("UPDATE notifications SET read = true WHERE workspace_id = $1 AND recipient_id = $2 AND NOT read", [auth.workspaceId, auth.employeeId], db)
+        query(
+            f"""INSERT INTO notification_reads (notification_id, employee_id)
+                SELECT v.id, $2 FROM ({NOTIFICATION_SELECT}) v JOIN notifications n ON n.id = v.id
+                 WHERE n.recipient_id IS NULL AND NOT v.read
+                ON CONFLICT DO NOTHING""",
+            [auth.workspaceId, auth.employeeId, is_exec(auth.role)],
+            db,
+        )
     return Response(status_code=204)
 
 
 @router.post("/notifications/{id}/read")
 def read_notification(id: str, auth: AuthContext = Depends(require_auth)):
-    query(
-        "UPDATE notifications SET read = true WHERE id = $1 AND workspace_id = $2 AND (recipient_id IS NULL OR recipient_id = $3)",
-        [id, auth.workspaceId, auth.employeeId],
-    )
+    n = query_one("SELECT recipient_id FROM notifications WHERE id = $1 AND workspace_id = $2", [id, auth.workspaceId])
+    if not n:
+        return Response(status_code=204)
+    if n["recipient_id"] == auth.employeeId:
+        query("UPDATE notifications SET read = true WHERE id = $1", [id])
+    elif n["recipient_id"] is None and _visible_ids(auth, id):
+        query("INSERT INTO notification_reads (notification_id, employee_id) VALUES ($1, $2) ON CONFLICT DO NOTHING", [id, auth.employeeId])
     return Response(status_code=204)
 
 

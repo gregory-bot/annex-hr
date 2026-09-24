@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { Award, Check, Lock } from 'lucide-react'
+import { Check } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { StatusBadge } from '@/components/shared/StatusBadge'
@@ -108,11 +108,11 @@ export function Settlement({
                 {a.status === 'Pending' &&
                   (canAct ? (
                     <Button size="sm" onClick={() => approve(i)}>
-                      <Check /> Approve
+                      Approve
                     </Button>
                   ) : (
-                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <Lock className="size-3" /> Awaiting {a.stage}
+                    <div className="text-xs text-muted-foreground">
+                      Awaiting {a.stage}
                     </div>
                   ))}
               </motion.li>
@@ -130,7 +130,7 @@ export function Settlement({
           variant="outline"
           onClick={() => toast.success('Certificate of service generated', { description: `${emp?.name ?? 'Employee'} · ${formatDate(emp?.startDate ?? record.submitted)} – ${formatDate(record.lastDay)}` })}
         >
-          <Award /> Generate certificate of service
+          Generate certificate of service
         </Button>
       </div>
     </div>

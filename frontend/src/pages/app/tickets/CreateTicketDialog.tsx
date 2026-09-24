@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ChevronRight, CornerDownLeft, Tag, UserRound, X } from 'lucide-react'
+import { X } from 'lucide-react'
 import type { Employee, TicketPriority, TicketStatus, TicketTeam } from '@/data/types'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
@@ -113,7 +113,7 @@ export function CreateTicketDialog({
               <span className="font-medium text-foreground">{team?.key ?? 'Team'}</span>
             </button>
           </TeamMenu>
-          <ChevronRight className="size-3.5" />
+          <span aria-hidden className="text-muted-foreground/60">/</span>
           <DialogTitle className="text-[13px] font-medium text-foreground">New ticket</DialogTitle>
         </div>
         <DialogDescription className="sr-only">Create a ticket for {team?.name ?? 'a team'}.</DialogDescription>
@@ -158,7 +158,7 @@ export function CreateTicketDialog({
           </PriorityMenu>
           <AssigneePicker value={assigneeId} onChange={(id) => setAssigneeId(id ?? undefined)} people={people} suggested={suggested} meId={meId}>
             <button className={chip}>
-              {assignee ? <PersonAvatar name={assignee.name} src={assignee.photo} className="size-4 text-[8px]" /> : <UserRound className="size-3.5 text-muted-foreground" />}
+              {assignee ? <PersonAvatar name={assignee.name} src={assignee.photo} className="size-4 text-[8px]" /> : <span className="size-4 shrink-0 rounded-full border border-dashed border-muted-foreground/40" aria-hidden />}
               <span className="max-w-[9rem] truncate">{assignee?.name ?? 'Assignee'}</span>
             </button>
           </AssigneePicker>
@@ -166,7 +166,6 @@ export function CreateTicketDialog({
 
         {/* Chip input: type and press Enter or comma */}
         <div className="mx-4 mb-3 flex min-h-9 flex-wrap items-center gap-1 rounded-lg border px-2 py-1 focus-within:border-primary">
-          <Tag className="size-3.5 shrink-0 text-muted-foreground" />
           {labels.map((l) => (
             <span key={l} className="inline-flex items-center gap-0.5">
               <LabelPill label={l} />
@@ -200,9 +199,7 @@ export function CreateTicketDialog({
         <div className="flex items-center justify-between gap-3 border-t px-4 py-3">
           <span className="hidden items-center gap-1 text-[12px] text-muted-foreground sm:inline-flex">
             <kbd className="rounded border bg-muted px-1 font-mono text-[10px]">⌘</kbd>
-            <kbd className="rounded border bg-muted px-1 font-mono text-[10px]">
-              <CornerDownLeft className="inline size-2.5" />
-            </kbd>
+            <kbd className="rounded border bg-muted px-1 font-mono text-[10px]">Enter</kbd>
             to create
           </span>
           <div className="ml-auto flex gap-2">

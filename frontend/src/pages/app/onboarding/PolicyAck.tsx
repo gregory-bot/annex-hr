@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
-import { BadgeCheck, ChevronRight, FileSignature, GitBranch, Globe, Monitor, ScrollText, Smartphone } from 'lucide-react'
 import { toast } from 'sonner'
 import { useWorkspace } from '@/context/auth'
 import type { Employee, Policy } from '@/data/types'
@@ -32,11 +31,7 @@ function sections(p: Policy, company: string) {
   ]
 }
 
-const methods = [
-  { label: 'Typed signature', icon: FileSignature },
-  { label: 'Click-to-accept (web)', icon: Monitor },
-  { label: 'Mobile app', icon: Smartphone },
-]
+const methods = [{ label: 'Typed signature' }, { label: 'Click-to-accept (web)' }, { label: 'Mobile app' }]
 
 function auditLog(p: Policy, employees: Employee[]) {
   const count = Math.min(10, Math.round((p.acknowledged / 100) * employees.length))
@@ -96,16 +91,12 @@ export function PolicyAck() {
               className="group flex flex-col rounded-xl border bg-card p-4 text-left shadow-[0_1px_2px_rgba(16,24,40,0.04)] transition-shadow hover:shadow-lg hover:shadow-black/[0.04]"
             >
               <div className="flex items-start gap-3">
-                <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent text-accent-foreground">
-                  <ScrollText className="size-5" />
-                </span>
                 <div className="min-w-0 flex-1">
                   <div className="truncate font-semibold">{p.title}</div>
                   <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
                     <span>{p.category}</span>·<span className="tabular">{p.version}</span>·<span>Updated {formatDate(p.updated, 'short')}</span>
                   </div>
                 </div>
-                <ChevronRight className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
               </div>
               <div className="mt-3 flex flex-wrap gap-1.5">
                 {p.mandatory ? <Badge variant="soft">Mandatory</Badge> : <Badge variant="muted">Optional</Badge>}
@@ -222,14 +213,13 @@ function PolicySheet({
                 toast.success(`${policy.title} acknowledged`)
               }}
             >
-              <BadgeCheck /> Accept
+              Accept
             </Button>
           </div>
         )}
 
         <div>
-          <h4 className="mb-3 flex items-center gap-2 text-sm font-semibold">
-            <GitBranch className="size-4 text-muted-foreground" /> Version history
+          <h4 className="mb-3 text-sm font-semibold">Version history
           </h4>
           <Timeline
             items={policy.history.map((h, i) => ({
@@ -245,21 +235,17 @@ function PolicySheet({
           <>
             <Separator />
             <div>
-              <h4 className="mb-1 flex items-center gap-2 text-sm font-semibold">
-                <Globe className="size-4 text-muted-foreground" /> Acknowledgement audit log
+              <h4 className="mb-1 text-sm font-semibold">Acknowledgement audit log
               </h4>
               <p className="mb-3 text-xs text-muted-foreground">Most recent {log.length} of {policy.acknowledged}% acknowledged. Tamper-evident, exportable for audits.</p>
               <ul className="divide-y rounded-xl border">
                 {log.map((row) => {
-                  const Icon = row.method.icon
                   return (
                     <li key={row.id} className="flex flex-col gap-2 p-3 sm:flex-row sm:items-center sm:justify-between">
                       <PersonCell name={row.name} sub={row.at} size="sm" />
                       <div className={cn('flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground sm:justify-end')}>
                         <span className="font-mono tabular">{row.ip}</span>
-                        <span className="inline-flex items-center gap-1">
-                          <Icon className="size-3.5" /> {row.method.label}
-                        </span>
+                        <span>{row.method.label}</span>
                       </div>
                     </li>
                   )

@@ -1,29 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import {
-  Award,
-  Ban,
-  BadgeCheck,
-  Briefcase,
-  CalendarCheck,
-  CalendarDays,
-  Eye,
-  EyeOff,
-  FileText,
-  Flag,
-  LogOut,
-  Mail,
-  MapPin,
-  MoreHorizontal,
-  Pencil,
-  Phone,
-  Rocket,
-  TrendingUp,
-  UserPlus,
-} from 'lucide-react'
 import { PolarAngleAxis, PolarGrid, Radar, RadarChart, ResponsiveContainer, Tooltip as RTooltip } from 'recharts'
-import { toast } from 'sonner'
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet'
 import { PersonAvatar } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
@@ -35,12 +13,15 @@ import { StatusBadge } from '@/components/shared/StatusBadge'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { Timeline, type TimelineItem } from '@/components/shared/Timeline'
 import { PersonCell } from '@/components/shared/PersonCell'
+import { StoredFileCard } from '@/components/shared/StoredFileCard'
+import { Skeleton } from '@/components/ui/skeleton'
 import { ChartTooltip, SERIES } from '@/components/charts/ChartKit'
 import { useWorkspace } from '@/context/auth'
 import type { Employee } from '@/data/types'
 import { isAdminLike } from '@/lib/rbac'
 import { cn, daysUntil, formatDate, formatKES } from '@/lib/utils'
 import { addDays, mask, reportsToChain, tenure } from './helpers'
+import { useEmployeeFiles } from './profileApi'
 
 const ANNUAL_ENTITLEMENT = 21
 
@@ -79,6 +60,10 @@ function ProfileBody({ emp, onDeactivate }: { emp: Employee; onDeactivate: (e: E
   const canSeePrivate = admin || isSelf
   const showSalary = admin || role === 'finance'
   const [reveal, setReveal] = useState(false)
+  // Uploaded files: the employee, HR, the CEO and the person's own manager.
+  const canViewFiles = admin || isSelf || (role === 'manager' && emp.managerId === ws.user.id)
+  const { files, loading: filesLoading } = useEmployeeFiles(emp.id, canViewFiles)
+  const profileHref = `/app/people/${emp.id}`
 
   const dept = ws.department(emp.departmentId)
   const manager = ws.employee(emp.managerId)
@@ -98,32 +83,32 @@ function ProfileBody({ emp, onDeactivate }: { emp: Employee; onDeactivate: (e: E
 
   const timeline = useMemo<TimelineItem[]>(() => {
     const items: (TimelineItem & { date: string })[] = []
-    items.push({ date: emp.startDate, title: `Joined ${ws.workspace.name}`, meta: formatDate(emp.startDate), body: `${emp.title} · ${dept?.name ?? ''}`, icon: UserPlus, state: 'done' })
+    items.push({ date: emp.startDate, title: `Joined ${ws.workspace.name}`, meta: formatDate(emp.startDate), body: `${emp.title} · ${dept?.name ?? ''}`, state: 'done' })
     const onProbation = emp.status === 'Probation' || emp.status === 'Onboarding'
     const probEnd = emp.probationEnd ?? addDays(emp.startDate, 90)
     if (onProbation) {
-      items.push({ date: probEnd, title: 'Probation review', meta: formatDate(probEnd), body: `${Math.max(0, daysUntil(probEnd))} days remaining`, icon: Flag, state: 'current' })
+      items.push({ date: probEnd, title: 'Probation review', meta: formatDate(probEnd), body: `${Math.max(0, daysUntil(probEnd))} days remaining`, state: 'current' })
     } else if (daysUntil(probEnd) < 0) {
-      items.push({ date: probEnd, title: 'Probation confirmed', meta: formatDate(probEnd), body: 'Confirmed as permanent after 90-day review', icon: BadgeCheck, state: 'done' })
+      items.push({ date: probEnd, title: 'Probation confirmed', meta: formatDate(probEnd), body: 'Confirmed as permanent after 90-day review', state: 'done' })
     }
     const days = -daysUntil(emp.startDate)
     if (days > 540) {
       const d = addDays(emp.startDate, 420)
-      items.push({ date: d, title: 'Salary review', meta: formatDate(d), body: 'Annual compensation review completed', icon: TrendingUp, state: 'done' })
+      items.push({ date: d, title: 'Salary review', meta: formatDate(d), body: 'Annual compensation review completed', state: 'done' })
     }
     if (days > 900 || emp.role === 'manager') {
       const d = addDays(emp.startDate, Math.min(days - 30, 760))
-      items.push({ date: d, title: emp.role === 'manager' ? `Promoted to ${emp.title}` : 'Promotion', meta: formatDate(d), body: 'Approved by department head and HR', icon: Award, state: 'done' })
+      items.push({ date: d, title: emp.role === 'manager' ? `Promoted to ${emp.title}` : 'Promotion', meta: formatDate(d), body: 'Approved by department head and HR', state: 'done' })
     }
     if (emp.performance >= 4.3) {
       const d = addDays('2026-09-23', -120)
-      if (d > emp.startDate) items.push({ date: d, title: 'Recognised: Star performer H1', meta: formatDate(d), icon: Rocket, state: 'done' })
+      if (d > emp.startDate) items.push({ date: d, title: 'Recognised: Star performer H1', meta: formatDate(d), state: 'done' })
     }
     if (emp.status === 'Notice Period') {
-      items.push({ date: '2026-09-23', title: 'Serving notice', meta: 'Now', body: 'Offboarding checklist in progress', icon: LogOut, state: 'current' })
+      items.push({ date: '2026-09-23', title: 'Serving notice', meta: 'Now', body: 'Offboarding checklist in progress', state: 'current' })
     }
     const nextReview = '2026-12-15'
-    items.push({ date: nextReview, title: 'Year-end performance review', meta: formatDate(nextReview), icon: CalendarCheck, state: 'upcoming' })
+    items.push({ date: nextReview, title: 'Year-end performance review', meta: formatDate(nextReview), state: 'upcoming' })
     return items.sort((a, b) => b.date.localeCompare(a.date)).map(({ date: _d, ...rest }) => rest)
   }, [emp, dept, ws.workspace.name])
 
@@ -152,33 +137,45 @@ function ProfileBody({ emp, onDeactivate }: { emp: Employee; onDeactivate: (e: E
         <div className="mt-4 flex flex-wrap gap-2">
           <Button size="sm" asChild>
             <a href={`mailto:${emp.email}`}>
-              <Mail /> Email
+              Email
             </a>
           </Button>
           <Button size="sm" variant="outline" asChild>
             <a href={`tel:${emp.phone.replace(/\s/g, '')}`}>
-              <Phone /> Call
+              Call
             </a>
+          </Button>
+          <Button size="sm" variant="outline" asChild>
+            <Link to={profileHref}>
+              View full profile
+            </Link>
           </Button>
           {admin && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button size="sm" variant="outline" aria-label="More actions">
-                  <MoreHorizontal /> More
+                  More
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start">
-                <DropdownMenuItem onSelect={() => toast.success('Edit mode', { description: `Editing ${emp.name}'s profile` })}>
-                  <Pencil /> Edit profile
+                <DropdownMenuItem asChild>
+                  <Link to={profileHref}>
+                    View full profile
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to={`${profileHref}?tab=personal&edit=1`}>
+                    Edit profile
+                  </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
                   <Link to={`/app/offboarding?employee=${emp.id}`}>
-                    <LogOut /> Start offboarding
+                    Start offboarding
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem destructive onSelect={() => onDeactivate(emp)}>
-                  <Ban /> Deactivate account
+                  Deactivate account
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -207,10 +204,7 @@ function ProfileBody({ emp, onDeactivate }: { emp: Employee; onDeactivate: (e: E
               </Field>
               <Field label="Phone">{emp.phone}</Field>
               <Field label="Location">
-                <span className="inline-flex items-center gap-1">
-                  <MapPin className="size-3.5 text-muted-foreground" />
-                  {emp.location}
-                </span>
+{emp.location}
               </Field>
               <Field label="Employee no.">{emp.employeeNo}</Field>
             </dl>
@@ -258,7 +252,7 @@ function ProfileBody({ emp, onDeactivate }: { emp: Employee; onDeactivate: (e: E
               <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Statutory identifiers</h4>
               {canSeePrivate && (
                 <Button variant="ghost" size="sm" onClick={() => setReveal((r) => !r)}>
-                  {reveal ? <EyeOff /> : <Eye />} {reveal ? 'Hide' : 'Reveal'}
+                  {reveal ? 'Hide' : 'Reveal'}
                 </Button>
               )}
             </div>
@@ -275,33 +269,57 @@ function ProfileBody({ emp, onDeactivate }: { emp: Employee; onDeactivate: (e: E
         </TabsContent>
 
         {/* Documents */}
-        <TabsContent value="documents">
-          {docs.length === 0 ? (
-            <EmptyState icon={FileText} title="No compliance documents" description="Contracts, permits and certificates will appear here." />
-          ) : (
-            <ul className="grid grid-cols-1 gap-2">
-              {docs.map((d, i) => (
-                <motion.li
-                  key={d.id}
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.04 }}
-                  className="flex items-center gap-3 rounded-lg border bg-card p-3"
-                >
-                  <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-accent text-primary">
-                    <FileText className="size-4" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm font-medium">{d.type}</div>
-                    <div className="truncate text-xs text-muted-foreground">
-                      {canSeePrivate ? d.number : mask(d.number)} · {d.expires ? `Expires ${formatDate(d.expires)}` : `Issued ${formatDate(d.issued)}`}
-                    </div>
-                  </div>
-                  <StatusBadge status={d.status} />
-                </motion.li>
-              ))}
-            </ul>
+        <TabsContent value="documents" className="grid grid-cols-1 gap-5">
+          {canViewFiles && (
+            <section>
+              <h4 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Uploaded files</h4>
+              {filesLoading ? (
+                <div className="grid grid-cols-1 gap-2">
+                  <Skeleton className="h-16 rounded-lg" />
+                  <Skeleton className="h-16 rounded-lg" />
+                </div>
+              ) : files && files.length > 0 ? (
+                <ul className="grid grid-cols-1 gap-2">
+                  {files.map((f) => (
+                    <li key={f.id}>
+                      <StoredFileCard file={f} />
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">No files uploaded yet — onboarding uploads (ID, KRA PIN, SHIF, NSSF) appear here.</p>
+              )}
+            </section>
           )}
+          <section>
+            <h4 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Compliance documents</h4>
+            {docs.length === 0 ? (
+              <EmptyState title="No compliance documents" description="Contracts, permits and certificates will appear here." className="py-8" />
+            ) : (
+              <ul className="grid grid-cols-1 gap-2">
+                {docs.map((d, i) => (
+                  <motion.li
+                    key={d.id}
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.04 }}
+                    className="flex items-center gap-3 rounded-lg border bg-card p-3"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-sm font-medium">{d.type}</div>
+                      <div className="truncate text-xs text-muted-foreground">
+                        {canSeePrivate ? d.number : mask(d.number)} · {d.expires ? `Expires ${formatDate(d.expires)}` : `Issued ${formatDate(d.issued)}`}
+                      </div>
+                    </div>
+                    <StatusBadge status={d.status} />
+                  </motion.li>
+                ))}
+              </ul>
+            )}
+          </section>
+          <Button variant="outline" size="sm" asChild className="justify-self-start">
+            <Link to={`${profileHref}?tab=documents`}>Open all documents</Link>
+          </Button>
         </TabsContent>
 
         {/* Leave */}
@@ -329,7 +347,7 @@ function ProfileBody({ emp, onDeactivate }: { emp: Employee; onDeactivate: (e: E
             <Progress value={(usedAnnual / ANNUAL_ENTITLEMENT) * 100} />
           </div>
           {leave.length === 0 ? (
-            <EmptyState icon={CalendarDays} title="No leave requests" description="Requests and approvals will show up here." />
+            <EmptyState title="No leave requests" description="Requests and approvals will show up here." />
           ) : (
             <ul className="divide-y rounded-lg border">
               {leave.map((l) => (
@@ -381,9 +399,7 @@ function ProfileBody({ emp, onDeactivate }: { emp: Employee; onDeactivate: (e: E
               </RadarChart>
             </ResponsiveContainer>
           </div>
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <Briefcase className="size-3.5" /> Next review cycle opens 15 Dec 2026.
-          </div>
+          <p className="text-xs text-muted-foreground">Next review cycle opens 15 Dec 2026.</p>
         </TabsContent>
 
         {/* Timeline */}

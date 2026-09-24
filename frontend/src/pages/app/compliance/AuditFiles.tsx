@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
-import { Check, CircleAlert, Download, FileArchive, X } from 'lucide-react'
 import { toast } from 'sonner'
 import type { Employee } from '@/data/types'
 import { Badge } from '@/components/ui/badge'
@@ -76,10 +75,10 @@ export function AuditFiles({ employees, docs, department }: { employees: Employe
               </div>
             </div>
             <Button onClick={() => toast.success(`Audit pack for ${emp.name} is being prepared — ZIP download will start shortly`)}>
-              <Download /> Download audit pack (ZIP)
+              Download audit pack (ZIP)
             </Button>
-            <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
-              <FileArchive className="mt-0.5 size-3.5 shrink-0" /> Includes every file below, an index and a signed audit trail — ready for NITA, KRA or labour inspections.
+            <p className="text-xs text-muted-foreground">
+              Includes every file below, an index and a signed audit trail — ready for NITA, KRA or labour inspections.
             </p>
           </CardContent>
         </Card>
@@ -96,15 +95,14 @@ export function AuditFiles({ employees, docs, department }: { employees: Employe
               className="flex items-center gap-3 rounded-lg border p-3"
             >
               <span
+                aria-label={c.status === 'ok' ? 'On file' : c.status === 'issue' ? 'Needs attention' : 'Missing'}
                 className={cn(
-                  'flex size-7 shrink-0 items-center justify-center rounded-full',
-                  c.status === 'ok' && 'bg-success-soft text-success',
-                  c.status === 'issue' && 'bg-warning-soft text-warning',
-                  c.status === 'missing' && 'bg-danger-soft text-danger',
+                  'size-2 shrink-0 rounded-full',
+                  c.status === 'ok' && 'bg-success',
+                  c.status === 'issue' && 'bg-warning',
+                  c.status === 'missing' && 'bg-danger',
                 )}
-              >
-                {c.status === 'ok' ? <Check className="size-4" /> : c.status === 'issue' ? <CircleAlert className="size-4" /> : <X className="size-4" />}
-              </span>
+              />
               <div className="min-w-0 flex-1">
                 <div className="text-sm font-medium">{c.label}</div>
                 <div className="text-xs text-muted-foreground">{c.note}</div>

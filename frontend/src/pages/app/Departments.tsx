@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Briefcase, Gauge, Plus, Users, Wallet } from 'lucide-react'
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip as RTooltip, XAxis, YAxis } from 'recharts'
 import { toast } from 'sonner'
 import { PageHeader } from '@/components/shared/PageHeader'
@@ -147,17 +146,17 @@ export default function Departments() {
         actions={
           admin && (
             <Button onClick={() => setAddOpen(true)}>
-              <Plus /> Add department
+              Add department
             </Button>
           )
         }
       />
 
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-        <StatCard index={0} label="Departments" value={depts.length} icon={Briefcase} />
-        <StatCard index={1} label="Headcount" value={totals.headcount} icon={Users} hint={`${(totals.headcount / Math.max(1, depts.length)).toFixed(1)} avg per team`} />
-        <StatCard index={2} label="Annual budget" value={totals.budget} format={(n) => formatKES(n, { compact: true })} icon={Wallet} />
-        <StatCard index={3} label="Avg performance" value={totals.avgPerf.toFixed(2)} icon={Gauge} hint="out of 5.0" />
+        <StatCard index={0} label="Departments" value={depts.length} />
+        <StatCard index={1} label="Headcount" value={totals.headcount} hint={`${(totals.headcount / Math.max(1, depts.length)).toFixed(1)} avg per team`} />
+        <StatCard index={2} label="Annual budget" value={totals.budget} format={(n) => formatKES(n, { compact: true })} />
+        <StatCard index={3} label="Avg performance" value={totals.avgPerf.toFixed(2)} hint="out of 5.0" />
       </div>
 
       {/* Cards */}
@@ -340,7 +339,7 @@ export default function Departments() {
               Cancel
             </Button>
             <Button onClick={addDept}>
-              <Plus /> Create department
+              Create department
             </Button>
           </DialogFooter>
         </DialogContent>

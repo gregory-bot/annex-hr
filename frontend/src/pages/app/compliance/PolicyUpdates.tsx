@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { ArrowRight, ScrollText, Send } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
 import type { Policy } from '@/data/types'
@@ -21,7 +20,7 @@ export function PolicyUpdates({ policies, headcount, self }: { policies: Policy[
       action={
         <Button asChild size="sm" variant="ghost">
           <Link to="/app/onboarding?tab=policies">
-            {self ? 'Review & sign' : 'Manage policies'} <ArrowRight />
+            {self ? 'Review & sign' : 'Manage policies'}
           </Link>
         </Button>
       }
@@ -37,19 +36,14 @@ export function PolicyUpdates({ policies, headcount, self }: { policies: Policy[
               transition={{ delay: i * 0.03 }}
               className="grid grid-cols-1 gap-3 p-3 sm:grid-cols-[minmax(0,1fr)_180px_auto] sm:items-center sm:p-4"
             >
-              <div className="flex min-w-0 items-start gap-3">
-                <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-accent text-accent-foreground">
-                  <ScrollText className="size-4" />
-                </span>
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="font-medium">{p.title}</span>
-                    <Badge variant="muted">{p.version}</Badge>
-                    {p.mandatory && <Badge variant="soft">Mandatory</Badge>}
-                  </div>
-                  <div className="mt-0.5 truncate text-xs text-muted-foreground">
-                    Updated {formatDate(p.updated)} · {p.history[0]?.note}
-                  </div>
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="font-medium">{p.title}</span>
+                  <Badge variant="muted">{p.version}</Badge>
+                  {p.mandatory && <Badge variant="soft">Mandatory</Badge>}
+                </div>
+                <div className="mt-0.5 truncate text-xs text-muted-foreground">
+                  Updated {formatDate(p.updated)} · {p.history[0]?.note}
                 </div>
               </div>
               <div>
@@ -69,7 +63,7 @@ export function PolicyUpdates({ policies, headcount, self }: { policies: Policy[
                     toast.success(`Reminder sent to ${nonSigners} non-signers of ${p.title}`)
                   }}
                 >
-                  <Send /> {nonSigners === 0 ? 'All signed' : reminded.has(p.id) ? 'Reminded' : `Remind ${nonSigners} non-signers`}
+                  {nonSigners === 0 ? 'All signed' : reminded.has(p.id) ? 'Reminded' : `Remind ${nonSigners} non-signers`}
                 </Button>
               )}
             </motion.li>

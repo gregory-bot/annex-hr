@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
-import { ArrowLeft, KeyRound, LinkIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { SuccessCheck } from '@/components/shared/SuccessCheck'
 import { api, ApiError, errorMessage, USE_MOCK_API } from '@/lib/api'
@@ -45,13 +44,10 @@ export default function ResetPassword() {
       <AnimatePresence mode="wait" custom={1}>
         {state === 'form' && (
           <motion.div key="form" custom={1} variants={slideVariants} initial="enter" animate="center" exit="exit">
-            <Link to="/login" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
-              <ArrowLeft className="size-4" /> Back to sign in
+            <Link to="/login" className="text-sm text-muted-foreground hover:text-foreground">
+              Back to sign in
             </Link>
-            <div className="mt-6 flex size-12 items-center justify-center rounded-2xl bg-accent text-primary">
-              <KeyRound className="size-5" />
-            </div>
-            <h1 className="mt-5 text-2xl font-bold tracking-tight sm:text-3xl">Choose a new password</h1>
+            <h1 className="mt-6 text-2xl font-bold tracking-tight sm:text-3xl">Choose a new password</h1>
             <p className="mt-2 text-sm text-muted-foreground">Pick a strong password you don't use anywhere else.</p>
             <form onSubmit={submit} noValidate className="mt-8 grid grid-cols-1 gap-4">
               <Field id="rp-password" label="New password" error={passwordError}>
@@ -86,10 +82,8 @@ export default function ResetPassword() {
 
         {state === 'invalid' && (
           <motion.div key="invalid" custom={1} variants={slideVariants} initial="enter" animate="center" exit="exit" className="text-center">
-            <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-danger/10 text-danger">
-              <LinkIcon className="size-6" />
-            </div>
-            <h1 className="mt-6 text-2xl font-bold tracking-tight">This reset link is invalid or has expired</h1>
+            <div className="text-xs font-semibold uppercase tracking-wider text-danger">Link expired</div>
+            <h1 className="mt-2 text-2xl font-bold tracking-tight">This reset link is invalid or has expired</h1>
             <p className="mx-auto mt-2 max-w-sm text-sm text-muted-foreground">Reset links work once and expire after 30 minutes. Request a new one to continue.</p>
             <div className="mt-8 grid grid-cols-1 gap-2 sm:grid-cols-2">
               <Button asChild size="lg">

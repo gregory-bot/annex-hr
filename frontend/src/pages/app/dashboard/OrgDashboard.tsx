@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { toast } from 'sonner'
-import { AlarmClock, ArrowRight, Award, BadgeCheck, CalendarCheck, CalendarOff, Check, FileWarning, UserMinus, UserPlus, Users, Wallet, X } from 'lucide-react'
 import { useWorkspace } from '@/context/auth'
 import { Section } from '@/components/shared/Section'
 import { EmptyState } from '@/components/shared/EmptyState'
@@ -120,21 +119,21 @@ export function OrgDashboard() {
               {isLeader(role) && (
                 <Button asChild>
                   <Link to="/app/leave?tab=approvals">
-                    <CalendarCheck /> Review approvals
+                    Review approvals
                   </Link>
                 </Button>
               )}
               {isAdminLike(role) && (
                 <Button asChild variant="outline">
                   <Link to="/app/people?invite=1">
-                    <UserPlus /> Invite employee
+                    Invite employee
                   </Link>
                 </Button>
               )}
               {canAccess(role, 'payroll') && (
                 <Button asChild variant="outline">
                   <Link to="/app/payroll">
-                    <Wallet /> Run payroll
+                    Run payroll
                   </Link>
                 </Button>
               )}
@@ -144,10 +143,10 @@ export function OrgDashboard() {
       </motion.div>
 
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-        <Kpi index={0} label="Total employees" value={active.length} icon={Users} href="/app/people" hint={`${hcDelta >= 0 ? '+' : ''}${hcDelta}% vs last month`} />
-        <Kpi index={1} label="On leave today" value={onLeavePeople.length} icon={CalendarOff} href="/app/leave?tab=calendar" hint={`${pendingLeaves.length} requests pending`} />
-        <Kpi index={2} label="New this month" value={newThisMonth.length} icon={UserPlus} href="/app/onboarding" hint={`${onboarding.length} onboarding`} />
-        <Kpi index={3} label="Resigned this month" value={resignedThisMonth.length} icon={UserMinus} href="/app/offboarding" hint={`${offboardings.length} in offboarding`} />
+        <Kpi index={0} label="Total employees" value={active.length} href="/app/people" hint={`${hcDelta >= 0 ? '+' : ''}${hcDelta}% vs last month`} />
+        <Kpi index={1} label="On leave today" value={onLeavePeople.length} href="/app/leave?tab=calendar" hint={`${pendingLeaves.length} requests pending`} />
+        <Kpi index={2} label="New this month" value={newThisMonth.length} href="/app/onboarding" hint={`${onboarding.length} onboarding`} />
+        <Kpi index={3} label="Resigned this month" value={resignedThisMonth.length} href="/app/offboarding" hint={`${offboardings.length} in offboarding`} />
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -225,7 +224,7 @@ export function OrgDashboard() {
                   </div>
                 </div>
                 <Badge variant="soft" className="shrink-0 tabular">
-                  <Award /> {topPerformer.performance.toFixed(1)} / 5
+                  {topPerformer.performance.toFixed(1)} / 5
                 </Badge>
               </div>
             )}
@@ -248,7 +247,7 @@ export function OrgDashboard() {
             action={
               <Button asChild variant="ghost" size="sm">
                 <Link to="/app/leave?tab=approvals">
-                  All approvals <ArrowRight />
+                  All approvals
                 </Link>
               </Button>
             }
@@ -279,10 +278,10 @@ export function OrgDashboard() {
                       </div>
                       <div className="flex shrink-0 gap-2 pl-12 sm:pl-0">
                         <Button size="sm" variant="outline" onClick={() => decide(l, false)}>
-                          <X /> Decline
+                          Decline
                         </Button>
                         <Button size="sm" onClick={() => decide(l, true)}>
-                          <Check /> Approve
+                          Approve
                         </Button>
                       </div>
                     </motion.li>
@@ -290,13 +289,12 @@ export function OrgDashboard() {
                 })}
               </AnimatePresence>
               {payrollPending.map((p) => (
-                <AttentionRow key={p.id} icon={Wallet} tone="bg-success-soft text-success" title={`${p.period} payroll awaiting CEO approval`} sub={`${formatKES(p.gross, { compact: true })} gross · ${p.employees} employees · prepared by ${p.preparedBy}`} href="/app/payroll" cta="Review" />
+                <AttentionRow key={p.id} tone="bg-success" title={`${p.period} payroll awaiting CEO approval`} sub={`${formatKES(p.gross, { compact: true })} gross · ${p.employees} employees · prepared by ${p.preparedBy}`} href="/app/payroll" cta="Review" />
               ))}
               {expiringDocs.slice(0, 2).map((d) => (
                 <AttentionRow
                   key={d.id}
-                  icon={FileWarning}
-                  tone="bg-danger-soft text-danger"
+                  tone="bg-danger"
                   title={`${employee(d.employeeId)?.name}'s ${d.type.toLowerCase()} ${d.status === 'Expired' ? 'has expired' : 'is expiring'}`}
                   sub={d.expires ? `${d.status === 'Expired' ? 'Expired' : 'Expires'} ${formatDate(d.expires)} · ${d.number}` : d.number}
                   href="/app/compliance"
@@ -306,8 +304,7 @@ export function OrgDashboard() {
               {probationDue.slice(0, 2).map((e) => (
                 <AttentionRow
                   key={e.id}
-                  icon={AlarmClock}
-                  tone="bg-info-soft text-info"
+                  tone="bg-info"
                   title={`${e.name}'s probation review is due`}
                   sub={`Probation ends ${formatDate(e.probationEnd!)} · ${e.title}`}
                   href="/app/onboarding?tab=probation"
@@ -315,7 +312,7 @@ export function OrgDashboard() {
                 />
               ))}
               {pendingLeaves.length + approvals === 0 && (
-                <EmptyState icon={BadgeCheck} title="You're all caught up" description="New approvals and alerts will appear here." />
+                <EmptyState title="You're all caught up" description="New approvals and alerts will appear here." />
               )}
             </ul>
           </Section>
@@ -329,14 +326,12 @@ export function OrgDashboard() {
 }
 
 function AttentionRow({
-  icon: Icon,
   tone,
   title,
   sub,
   href,
   cta,
 }: {
-  icon: typeof Wallet
   tone: string
   title: string
   sub: string
@@ -345,8 +340,8 @@ function AttentionRow({
 }) {
   return (
     <li className="flex items-center gap-3 py-3 first:pt-0">
-      <span className={cn('flex size-9 shrink-0 items-center justify-center rounded-full', tone)}>
-        <Icon className="size-4" />
+      <span className="flex w-9 shrink-0 justify-center" aria-hidden>
+        <span className={cn('size-2 rounded-full', tone)} />
       </span>
       <div className="min-w-0 flex-1">
         <div className="truncate text-sm font-medium">{title}</div>

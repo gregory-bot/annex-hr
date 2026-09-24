@@ -15,6 +15,7 @@ import {
   ShieldCheck,
   TicketCheck,
   Timer,
+  UserRound,
   Users,
   Wallet,
   type LucideIcon,
@@ -58,7 +59,7 @@ const LEADERS: Role[] = [...ADMIN, 'manager', 'ceo']
 
 export const navItems: NavItem[] = [
   { key: 'dashboard', label: 'Dashboard', href: '/app', icon: LayoutDashboard, roles: 'all', section: 'Workspace' },
-  { key: 'people', label: 'People', href: '/app/people', icon: Users, roles: [...LEADERS, 'finance', 'employee'], section: 'Workspace' },
+  { key: 'people', label: 'People', href: '/app/people', icon: Users, roles: [...LEADERS, 'finance', 'employee', 'consultant'], section: 'Workspace' },
   { key: 'departments', label: 'Departments', href: '/app/departments', icon: Briefcase, roles: [...LEADERS, 'finance'], section: 'Workspace' },
   { key: 'tickets', label: 'Tickets', href: '/app/tickets', icon: TicketCheck, roles: 'all', section: 'Workspace' },
   { key: 'onboarding', label: 'Onboarding', href: '/app/onboarding', icon: Rocket, roles: 'all', section: 'People Ops' },
@@ -84,8 +85,16 @@ export function canAccess(role: Role, key: string) {
   return item.roles === 'all' || item.roles.includes(role)
 }
 
+/** Roles that only see themselves: People becomes "My profile" and the directory is hidden. */
+export const SELF_SERVICE_ROLES: Role[] = ['employee', 'consultant']
+export function isSelfServiceRole(role: Role) {
+  return SELF_SERVICE_ROLES.includes(role)
+}
+
 export function navFor(role: Role) {
-  return navItems.filter((n) => n.roles === 'all' || n.roles.includes(role))
+  return navItems
+    .filter((n) => n.roles === 'all' || n.roles.includes(role))
+    .map((n) => (n.key === 'people' && isSelfServiceRole(role) ? { ...n, label: 'My profile', icon: UserRound } : n))
 }
 
 /** Whether this role acts on behalf of the organisation (sees everyone) or only themselves. */

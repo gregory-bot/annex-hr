@@ -1,6 +1,5 @@
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Moon, Plus, CalendarPlus, TicketPlus, UserPlus, Wallet } from 'lucide-react'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
 import { PersonAvatar } from '@/components/ui/avatar'
@@ -39,19 +38,19 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
             <CommandEmpty>No results found.</CommandEmpty>
             <CommandGroup heading="Quick actions">
               <CommandItem onSelect={() => go('/app/leave?apply=1')}>
-                <CalendarPlus /> Apply for leave
+                Apply for leave
               </CommandItem>
               <CommandItem onSelect={() => go('/app/tickets?new=1')}>
-                <TicketPlus /> Create ticket
+                Create ticket
               </CommandItem>
               <CommandItem onSelect={() => go('/app/people?invite=1')}>
-                <UserPlus /> Invite employee
+                Invite employee
               </CommandItem>
               <CommandItem onSelect={() => go('/app/payroll')}>
-                <Wallet /> Run payroll
+                Run payroll
               </CommandItem>
               <CommandItem onSelect={() => go('/app/surveys?new=1')}>
-                <Plus /> New pulse survey
+                New pulse survey
               </CommandItem>
               <CommandItem
                 onSelect={() => {
@@ -59,13 +58,13 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
                   onOpenChange(false)
                 }}
               >
-                <Moon /> Toggle dark mode
+                Toggle dark mode
               </CommandItem>
             </CommandGroup>
             <CommandGroup heading="Navigate">
               {navFor(role).map((n) => (
                 <CommandItem key={n.key} value={`go ${n.label}`} onSelect={() => go(n.href)}>
-                  <n.icon /> {n.label}
+                  {n.label}
                 </CommandItem>
               ))}
             </CommandGroup>

@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { toast } from 'sonner'
 import { addDays } from 'date-fns'
-import { ArrowLeft, ArrowRight, BadgeCheck, Building, CalendarDays, CircleCheck, FileText, IdCard, Inbox, LoaderCircle, Lock, ShieldCheck } from 'lucide-react'
+import { LoaderCircle } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -50,7 +50,7 @@ function InviteEmail({ inviter, company, domain, invitee, onAccept }: { inviter:
   return (
     <div>
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
-        <Inbox className="size-4" /> 1 new message
+        <span className="size-1.5 rounded-full bg-primary" aria-hidden /> 1 new message
       </div>
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="mt-4 overflow-hidden rounded-2xl border bg-card shadow-xl shadow-primary/5">
         <div className="border-b bg-subtle px-4 py-3 text-xs sm:px-5">
@@ -85,7 +85,7 @@ function InviteEmail({ inviter, company, domain, invitee, onAccept }: { inviter:
             <Badge variant="muted">Expires in 14 days</Badge>
           </div>
           <Button size="lg" className="mt-5 w-full" onClick={onAccept}>
-            Accept invitation <ArrowRight />
+            Accept invitation
           </Button>
           <p className="mt-3 text-center text-xs text-muted-foreground">Not expecting this? You can safely ignore this email.</p>
         </div>
@@ -203,11 +203,11 @@ export default function AcceptInvite() {
     <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row">
       {step > 0 && (
         <Button type="button" variant="outline" size="lg" onClick={back} className="sm:w-auto">
-          <ArrowLeft /> Back
+          Back
         </Button>
       )}
       <SubmitButton loading={loading} loadingText="Saving…" className="sm:flex-1">
-        {label} <ArrowRight />
+        {label}
       </SubmitButton>
     </div>
   )
@@ -216,10 +216,7 @@ export default function AcceptInvite() {
     return (
       <AuthLayout aside={aside}>
         <div className="text-center">
-          <div className="mx-auto flex size-12 items-center justify-center rounded-2xl bg-accent text-primary">
-            <Lock className="size-5" />
-          </div>
-          <h1 className="mt-4 text-xl font-bold">This invitation can't be used</h1>
+          <h1 className="text-xl font-bold">This invitation can't be used</h1>
           <p className="mt-2 text-sm text-muted-foreground">{inviteError}</p>
           <Button asChild className="mt-6">
             <Link to="/login">Go to sign in</Link>
@@ -301,7 +298,8 @@ export default function AcceptInvite() {
                         <div className="flex size-12 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-secondary text-lg font-bold text-white">{company.logoText}</div>
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2 font-semibold">
-                            {company.name} <BadgeCheck className="size-4 text-primary" />
+                            {company.name}
+                            <Badge variant="success">Verified</Badge>
                           </div>
                           <div className="truncate font-mono text-xs text-muted-foreground">{company.domain}</div>
                         </div>
@@ -359,18 +357,18 @@ export default function AcceptInvite() {
                     <div className="mt-6 grid grid-cols-1 gap-4">
                       {(
                         [
-                          { key: 'id', label: 'National ID / Passport', icon: IdCard },
-                          { key: 'kra', label: 'KRA PIN certificate', icon: FileText },
+                          { key: 'id', label: 'National ID / Passport' },
+                          { key: 'kra', label: 'KRA PIN certificate' },
                         ] as const
                       ).map((d) => (
                         <div key={d.key} className="rounded-2xl border p-4">
                           <div className="mb-3 flex items-center justify-between gap-2">
-                            <div className="flex items-center gap-2 text-sm font-medium">
-                              <d.icon className="size-4 text-primary" /> {d.label}
+                            <div className="text-sm font-medium">
+                              {d.label}
                             </div>
                             {docs[d.key] ? (
                               <Badge variant="success">
-                                <CircleCheck /> Uploaded
+                                Uploaded
                               </Badge>
                             ) : (
                               <Badge variant="muted">Required</Badge>
@@ -400,9 +398,6 @@ export default function AcceptInvite() {
                       {policies.map((p) => (
                         <label key={p.id} htmlFor={`pol-${p.id}`} className={cn('flex cursor-pointer items-center gap-3 rounded-xl border p-3 transition hover:bg-subtle', acks[p.id] && 'border-primary/40 bg-accent/30')}>
                           <Checkbox id={`pol-${p.id}`} checked={!!acks[p.id]} onCheckedChange={(v) => setAcks((a) => ({ ...a, [p.id]: v === true }))} />
-                          <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-                            <ShieldCheck className="size-4" />
-                          </span>
                           <span className="min-w-0 flex-1">
                             <span className="block text-sm font-medium">{p.title}</span>
                             <span className="block truncate text-xs text-muted-foreground">{p.meta}</span>
@@ -434,13 +429,12 @@ export default function AcceptInvite() {
                     <p className="mt-2 text-sm text-muted-foreground">Your 90-day probation starts today.</p>
                     <div className="mt-6 grid grid-cols-1 gap-3 text-left sm:grid-cols-3">
                       {[
-                        { icon: CalendarDays, k: 'Start date', v: formatDate(TODAY) },
-                        { icon: Lock, k: 'Probation ends', v: formatDate(probationEnd) },
-                        { icon: Building, k: 'Workspace', v: company.domain },
+                        { k: 'Start date', v: formatDate(TODAY) },
+                        { k: 'Probation ends', v: formatDate(probationEnd) },
+                        { k: 'Workspace', v: company.domain },
                       ].map((r, i) => (
                         <motion.div key={r.k} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 + i * 0.08 }} className="min-w-0 rounded-xl border bg-card p-3">
-                          <r.icon className="size-4 text-primary" />
-                          <div className="mt-2 text-[11px] text-muted-foreground">{r.k}</div>
+                          <div className="text-[11px] text-muted-foreground">{r.k}</div>
                           <div className="truncate text-sm font-semibold">{r.v}</div>
                         </motion.div>
                       ))}
@@ -452,7 +446,7 @@ export default function AcceptInvite() {
                       {loading ? <LoaderCircle className="animate-spin" /> : null}
                       {loading ? 'Opening dashboard…' : (
                         <>
-                          Go to my dashboard <ArrowRight />
+                          Go to my dashboard
                         </>
                       )}
                     </Button>

@@ -16,6 +16,14 @@ export interface Workspace {
   plan: 'Growth' | 'Enterprise' | 'Starter'
   founded: number
   offices: { city: string; country: string; address: string; headcount: number }[]
+  /** Uploaded company logo (served by the API, cache-busted), or null when the workspace uses its letter mark. */
+  logoUrl?: string | null
+  /** Brand colours as #RRGGBB. */
+  brandPrimary?: string
+  brandSecondary?: string
+  /** Custom sign-in domain, e.g. hr.company.com. */
+  customDomain?: string | null
+  customDomainVerified?: boolean
 }
 
 export interface Department {

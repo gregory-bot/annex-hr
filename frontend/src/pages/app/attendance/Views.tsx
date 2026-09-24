@@ -50,7 +50,6 @@ export function MonthCalendar({ seed, holidays }: { seed: string; holidays: Set<
         <motion.div key={iso(month)} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }} className="grid grid-cols-7 gap-1 sm:gap-1.5">
           {days.map(({ d, date, inMonth, status }) => {
             const meta = status === 'weekend' || status === 'upcoming' ? null : statusMeta[status]
-            const Icon = meta?.icon
             return (
               <Tip key={date} label={`${formatDate(date)} · ${meta?.label ?? (status === 'weekend' ? 'Weekend' : 'Upcoming')}`}>
                 <div
@@ -62,9 +61,9 @@ export function MonthCalendar({ seed, holidays }: { seed: string; holidays: Set<
                   )}
                 >
                   <span className="font-semibold tabular">{format(d, 'd')}</span>
-                  {Icon && (
+                  {meta && (
                     <span className="flex items-center gap-1">
-                      <Icon className="size-3" />
+                      <span className={cn('size-1.5 rounded-full', meta.dot)} aria-hidden />
                       <span className="hidden text-[10px] font-medium lg:inline">{meta.label}</span>
                       <span className="sr-only">{meta.label}</span>
                     </span>
@@ -78,9 +77,7 @@ export function MonthCalendar({ seed, holidays }: { seed: string; holidays: Set<
       <div className="mt-4 flex flex-wrap gap-x-4 gap-y-2">
         {LEGEND.map(([k, m]) => (
           <span key={k} className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-            <span className={cn('flex size-5 items-center justify-center rounded', m.cell)}>
-              <m.icon className="size-3" />
-            </span>
+            <span className={cn('size-3 rounded', m.cell)} aria-hidden />
             {m.label}
           </span>
         ))}

@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { RotateCcw, SlidersHorizontal } from 'lucide-react'
 import { useWorkspace } from '@/context/auth'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { ExportMenu } from '@/components/shared/ExportMenu'
@@ -70,9 +69,7 @@ export default function Reports() {
       </Tabs>
 
       <div className="mt-4 flex flex-col gap-2 rounded-xl border bg-card p-3 sm:flex-row sm:flex-wrap sm:items-center">
-        <div className="flex items-center gap-2 px-1 text-xs font-medium text-muted-foreground">
-          <SlidersHorizontal className="size-3.5" /> Filters
-        </div>
+        <div className="px-1 text-xs font-medium text-muted-foreground">Filters</div>
         <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-1 sm:flex-wrap">
           <SimpleSelect
             value={dept}
@@ -93,7 +90,7 @@ export default function Reports() {
               setLocation('all')
             }}
           >
-            <RotateCcw /> Reset
+            Reset
           </Button>
         )}
       </div>

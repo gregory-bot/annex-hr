@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { MailPlus, Plus, Send, Trash2 } from 'lucide-react'
+import { Trash2, LoaderCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -14,8 +14,9 @@ import { EmptyState } from '@/components/shared/EmptyState'
 import { PersonCell } from '@/components/shared/PersonCell'
 import type { Department, Role } from '@/data/types'
 import { roleLabels } from '@/lib/rbac'
-import { TODAY, formatDate } from '@/lib/utils'
+import { formatDate } from '@/lib/utils'
 import { EMAIL_RE, inviteRoles, type PendingInvite } from './helpers'
+import type { InviteRequest } from './useInvites'
 
 interface Row {
   key: number
@@ -29,15 +30,17 @@ let seq = 0
 /** Invite form with two modes: paste many emails, or add rows individually. */
 export function InviteForm({
   departments,
-  onSent,
+  onSend,
   submitLabel = 'Send invitations',
   onCancel,
 }: {
   departments: Department[]
-  onSent: (invites: PendingInvite[]) => void
+  /** Sends the invitations; resolves with a summary, rejects with an error message. */
+  onSend: (invites: InviteRequest[]) => Promise<{ sent: number; emailed: number; skipped: string[] }>
   submitLabel?: string
   onCancel?: () => void
 }) {
+  const [sending, setSending] = useState(false)
   const firstDept = departments[0]?.id ?? ''
   const [mode, setMode] = useState<'bulk' | 'rows'>('bulk')
   const [bulk, setBulk] = useState('')
@@ -61,13 +64,20 @@ export function InviteForm({
       toast.error('Add at least one valid work email')
       return
     }
-    const invites = list.map((i) => ({ ...i, id: `inv-${++seq}`, sent: TODAY }))
-    onSent(invites)
-    toast.success(`${invites.length} invitation${invites.length === 1 ? '' : 's'} sent`, {
-      description: 'Invitees get a secure link to join your workspace.',
-    })
-    setBulk('')
-    setRows([{ key: ++seq, email: '', departmentId: firstDept, role: 'employee' }])
+    setSending(true)
+    onSend(list)
+      .then(({ sent, emailed, skipped }) => {
+        const plural = sent === 1 ? '' : 's'
+        const notes = [
+          emailed < sent ? `${sent - emailed} email${sent - emailed === 1 ? '' : 's'} couldn't be delivered — use Resend` : 'Invitees get a secure link by email.',
+          skipped.length ? `Already in the workspace: ${skipped.join(', ')}` : '',
+        ].filter(Boolean)
+        toast.success(`${sent} invitation${plural} sent`, { description: notes.join(' ') })
+        setBulk('')
+        setRows([{ key: ++seq, email: '', departmentId: firstDept, role: 'employee' }])
+      })
+      .catch((err: unknown) => toast.error('Invitations not sent', { description: err instanceof Error ? err.message : String(err) }))
+      .finally(() => setSending(false))
   }
 
   return (
@@ -154,7 +164,7 @@ export function InviteForm({
             className="justify-self-start"
             onClick={() => setRows((p) => [...p, { key: ++seq, email: '', departmentId: firstDept, role: 'employee' }])}
           >
-            <Plus /> Add another
+            Add another
           </Button>
         </TabsContent>
       </Tabs>
@@ -164,8 +174,8 @@ export function InviteForm({
             Cancel
           </Button>
         )}
-        <Button onClick={submit}>
-          <Send /> {submitLabel}
+        <Button onClick={submit} disabled={sending}>
+          {sending && <LoaderCircle className="animate-spin" />} {sending ? 'Sending…' : submitLabel}
         </Button>
       </div>
     </div>
@@ -176,12 +186,12 @@ export function InviteDialog({
   open,
   onOpenChange,
   departments,
-  onSent,
+  onSend,
 }: {
   open: boolean
   onOpenChange: (o: boolean) => void
   departments: Department[]
-  onSent: (invites: PendingInvite[]) => void
+  onSend: (invites: InviteRequest[]) => Promise<{ sent: number; emailed: number; skipped: string[] }>
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -193,9 +203,10 @@ export function InviteDialog({
         <InviteForm
           departments={departments}
           onCancel={() => onOpenChange(false)}
-          onSent={(inv) => {
-            onSent(inv)
+          onSend={async (inv) => {
+            const res = await onSend(inv)
             onOpenChange(false)
+            return res
           }}
         />
       </DialogContent>
@@ -243,7 +254,7 @@ export function PendingInvitesTable({
       columns={columns}
       rowKey={(r) => r.id}
       pageSize={5}
-      empty={<EmptyState icon={MailPlus} title="No pending invites" description="Invitations you send appear here until they're accepted." />}
+      empty={<EmptyState title="No pending invites" description="Invitations you send appear here until they're accepted." />}
     />
   )
 }

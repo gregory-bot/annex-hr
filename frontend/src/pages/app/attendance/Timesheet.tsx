@@ -1,5 +1,4 @@
 import { useMemo } from 'react'
-import { Coffee, Flag, LogIn, LogOut, Play, type LucideIcon } from 'lucide-react'
 import { Section } from '@/components/shared/Section'
 import { ProgressRing } from '@/components/shared/ProgressRing'
 import { Timeline, type TimelineItem } from '@/components/shared/Timeline'
@@ -8,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { TODAY, cn, formatDate } from '@/lib/utils'
 import { SHIFT, entryFor, monthToDate, personalStatus, thisMonday, weekDates } from './data'
-import { hm, hms, hrs, type Clock, type ClockEventKind } from './workday'
+import { hm, hms, hrs, type Clock } from './workday'
 
 const H = 3_600_000
 
@@ -48,11 +47,11 @@ export function TimesheetCard({ clock, className }: { clock: Clock; className?: 
       <div className={cn('grid gap-2', state.clockedIn ? 'grid-cols-2' : 'grid-cols-1')}>
         {state.clockedIn && (
           <Button variant="outline" onClick={toggleBreak}>
-            {state.onBreak ? <Play /> : <Coffee />} {state.onBreak ? 'Resume' : 'Break'}
+            {state.onBreak ? 'Resume' : 'Break'}
           </Button>
         )}
         <Button variant={state.clockedIn ? 'secondary' : 'default'} onClick={() => toggle()}>
-          {state.clockedIn ? <LogOut /> : <LogIn />} {state.clockedIn ? 'Punch out' : 'Punch in'}
+          {state.clockedIn ? 'Punch out' : 'Punch in'}
         </Button>
       </div>
       <div className="mt-4 grid grid-cols-2 gap-2">
@@ -132,17 +131,14 @@ export function StatisticsCard({ stats, className }: { stats: ReturnType<typeof 
   )
 }
 
-const kindIcon: Record<ClockEventKind, LucideIcon> = { in: LogIn, out: LogOut, break: Coffee, resume: Play }
-
 export function TodayActivity({ clock, className }: { clock: Clock; className?: string }) {
   const { state } = clock
   const items: TimelineItem[] = state.log.map((l, i) => ({
     title: l.label,
     meta: hm(l.at),
-    icon: kindIcon[l.kind],
     state: i === state.log.length - 1 && state.clockedIn ? 'current' : 'done',
   }))
-  if (state.clockedIn) items.push({ title: 'Shift ends', meta: SHIFT.end, icon: Flag, state: 'upcoming' })
+  if (state.clockedIn) items.push({ title: 'Shift ends', meta: SHIFT.end, state: 'upcoming' })
   return (
     <Section title="Today activity" description={`${state.log.length} event${state.log.length === 1 ? '' : 's'}`} className={cn('h-full', className)}>
       <Timeline items={items} />

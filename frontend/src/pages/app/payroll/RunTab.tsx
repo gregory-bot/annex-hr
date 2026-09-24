@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Check, Download, FileText, Loader2, Play, Sparkles } from 'lucide-react'
+import { Check, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useWorkspace } from '@/context/auth'
 import type { Employee } from '@/data/types'
@@ -139,7 +139,7 @@ export function RunTab() {
               rows={rows.map((r) => ({ Employee: r.employee.name, 'KRA PIN': r.employee.kraPin, Basic: r.basic, Allowances: r.allowances, Gross: r.gross, PAYE: r.paye, SHIF: r.shif, NSSF: r.nssf, 'Housing Levy': r.housingLevy, Bonus: r.bonus, Net: r.net }))}
             />
             <Button onClick={() => setOpen(true)}>
-              <Sparkles /> Generate payroll
+              Generate payroll
             </Button>
           </div>
         </div>
@@ -230,13 +230,13 @@ export function RunTab() {
                   Cancel
                 </Button>
                 <Button onClick={startGeneration}>
-                  <Play /> Run calculation
+                  Run calculation
                 </Button>
               </>
             )}
             {done && (
               <Button onClick={finishGeneration}>
-                <FileText /> Review draft
+                Review draft
               </Button>
             )}
           </DialogFooter>
@@ -327,7 +327,7 @@ function PayslipSheet({ row, period, onClose, deptName }: { row: Row | null; per
                 className="flex-1"
                 onClick={() => toast.success('Payslip downloaded', { description: `payslip-${row.employee.employeeNo}-${period.toLowerCase().replace(' ', '-')}.pdf` })}
               >
-                <Download /> Download payslip
+                Download payslip
               </Button>
             </div>
           </div>

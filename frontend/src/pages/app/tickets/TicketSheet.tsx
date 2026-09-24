@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { DayPicker } from 'react-day-picker'
-import { CalendarDays, Copy, Link2, Tag, UserRound } from 'lucide-react'
+import { Copy, Link2 } from 'lucide-react'
 import { toast } from 'sonner'
 import type { Employee, Ticket, TicketTeam } from '@/data/types'
 import { cn, daysUntil, formatDate } from '@/lib/utils'
@@ -162,7 +162,7 @@ function Body({
       <div className="flex min-w-0 items-center gap-1">
         <AssigneePicker value={t.assigneeId} onChange={(assigneeId) => onUpdate({ assigneeId })} people={people} suggested={suggestedFor(t.teamId)} meId={meId} disabled={!editable}>
           <button className={propButton}>
-            {assignee ? <PersonAvatar name={assignee.name} src={assignee.photo} className="size-5 text-[9px]" /> : <UserRound className="size-4 text-muted-foreground" />}
+            {assignee ? <PersonAvatar name={assignee.name} src={assignee.photo} className="size-5 text-[9px]" /> : <span className="size-5 shrink-0 rounded-full border border-dashed border-muted-foreground/40" aria-hidden />}
             <span className={cn('truncate', !assignee && 'text-muted-foreground')}>{assignee?.name ?? 'Unassigned'}</span>
           </button>
         </AssigneePicker>
@@ -176,7 +176,7 @@ function Body({
       <span className="self-start pt-1 text-muted-foreground">Labels</span>
       <LabelsPicker value={t.labels} onChange={(labels) => onUpdate({ labels })} known={knownLabels} disabled={!editable}>
         <button className={cn(propButton, 'h-auto min-h-7 flex-wrap py-1')}>
-          {t.labels.length ? t.labels.map((l) => <LabelPill key={l} label={l} />) : <span className="inline-flex items-center gap-2 text-muted-foreground"><Tag className="size-3.5" /> Add label</span>}
+          {t.labels.length ? t.labels.map((l) => <LabelPill key={l} label={l} />) : <span className="text-muted-foreground">Add label</span>}
         </button>
       </LabelsPicker>
 
@@ -192,7 +192,6 @@ function Body({
       <Popover>
         <PopoverTrigger asChild disabled={!editable}>
           <button className={cn(propButton, due !== null && due < 0 && !closed && 'text-danger')}>
-            <CalendarDays className="size-3.5 text-muted-foreground" />
             {t.dueDate ? `${formatDate(t.dueDate, 'short')}${due !== null && !closed ? (due < 0 ? ' · overdue' : due === 0 ? ' · today' : ` · in ${due}d`) : ''}` : <span className="text-muted-foreground">Set due date</span>}
           </button>
         </PopoverTrigger>

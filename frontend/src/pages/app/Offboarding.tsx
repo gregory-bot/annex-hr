@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Check, ClipboardList, DoorOpen, Hourglass, MessageSquareText, PackageOpen, UserMinus, Wallet, Handshake } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -29,7 +28,6 @@ function Countdown({ r }: { r: ExitRecord }) {
   if (d < 0)
     return (
       <div className="flex size-16 flex-col items-center justify-center rounded-full bg-muted text-center">
-        <DoorOpen className="size-4 text-muted-foreground" />
         <span className="text-[10px] font-medium text-muted-foreground">Exited</span>
       </div>
     )
@@ -55,10 +53,10 @@ function Countdown({ r }: { r: ExitRecord }) {
   )
 }
 
-function Chip({ done, icon: Icon, label }: { done: boolean; icon: typeof Check; label: string }) {
+function Chip({ done, label }: { done: boolean; label: string }) {
   return (
-    <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium', done ? 'bg-success-soft text-success' : 'bg-muted text-muted-foreground')}>
-      {done ? <Check className="size-3" strokeWidth={3} /> : <Icon className="size-3" />}
+    <span className={cn('inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium', done ? 'bg-success-soft text-success' : 'bg-muted text-muted-foreground')}>
+      <span className={cn('size-1.5 rounded-full', done ? 'bg-success' : 'bg-muted-foreground/50')} />
       {label}
     </span>
   )
@@ -106,17 +104,15 @@ export default function Offboarding() {
             : 'Resignations, notice periods, clearance and final settlement — one workflow, no loose ends.'
         }
         actions={
-          <Button onClick={() => setStartOpen(true)}>
-            <UserMinus /> Start offboarding
-          </Button>
+          <Button onClick={() => setStartOpen(true)}>Start offboarding</Button>
         }
       />
 
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-        <StatCard label="Active exits" value={active.length} icon={DoorOpen} tone="primary" index={0} hint={`${list.length} in pipeline`} />
-        <StatCard label="Avg notice remaining" value={avgRemaining} format={(n) => `${Math.round(n)} days`} icon={Hourglass} index={1} />
-        <StatCard label="Assets outstanding" value={outstandingAssets} icon={PackageOpen} tone="warning" index={2} hint="Laptops, cards & access" />
-        <StatCard label="Exit interviews" value={interviewPct} format={(n) => `${Math.round(n)}%`} icon={MessageSquareText} tone="success" index={3} hint="Completed" />
+        <StatCard label="Active exits" value={active.length} tone="primary" index={0} hint={`${list.length} in pipeline`} />
+        <StatCard label="Avg notice remaining" value={avgRemaining} format={(n) => `${Math.round(n)} days`} index={1} />
+        <StatCard label="Assets outstanding" value={outstandingAssets} tone="warning" index={2} hint="Laptops, cards & access" />
+        <StatCard label="Exit interviews" value={interviewPct} format={(n) => `${Math.round(n)}%`} tone="success" index={3} hint="Completed" />
       </div>
 
       <Section title="Resignation workflow" description="Where each departing employee sits today.">
@@ -140,7 +136,7 @@ export default function Offboarding() {
       </Section>
 
       {list.length === 0 ? (
-        <EmptyState icon={DoorOpen} title="No active exits" description="When someone resigns, start their offboarding here." />
+        <EmptyState title="No active exits" description="When someone resigns, start their offboarding here." />
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           {list.map((r, i) => {
@@ -175,10 +171,10 @@ export default function Offboarding() {
                     <Progress value={pct} tone={pct === 100 ? 'success' : 'primary'} />
                   </div>
                   <div className="flex flex-wrap gap-1.5">
-                    <Chip done={handoverDone(r)} icon={Handshake} label="Handover" />
-                    <Chip done={allAssetsReturned(r)} icon={PackageOpen} label="Assets" />
-                    <Chip done={r.exitInterview} icon={ClipboardList} label="Exit interview" />
-                    <Chip done={duesSettled(r)} icon={Wallet} label="Final dues" />
+                    <Chip done={handoverDone(r)} label="Handover" />
+                    <Chip done={allAssetsReturned(r)} label="Assets" />
+                    <Chip done={r.exitInterview} label="Exit interview" />
+                    <Chip done={duesSettled(r)} label="Final dues" />
                   </div>
                 </Card>
               </motion.div>

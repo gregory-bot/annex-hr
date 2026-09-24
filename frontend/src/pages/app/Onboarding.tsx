@@ -1,5 +1,4 @@
 import { useSearchParams } from 'react-router-dom'
-import { ClipboardCheck, Hourglass, LayoutDashboard, ScrollText, UserPlus } from 'lucide-react'
 import { toast } from 'sonner'
 import { useWorkspace } from '@/context/auth'
 import { isLeader } from '@/lib/rbac'
@@ -37,7 +36,7 @@ export default function Onboarding() {
         actions={
           leader ? (
             <Button onClick={() => toast.success('Invite sent — “Kenya Standard” checklist assigned')}>
-              <UserPlus /> Invite new joiner
+              Invite new joiner
             </Button>
           ) : undefined
         }
@@ -45,18 +44,18 @@ export default function Onboarding() {
       <Tabs key={`${workspace.id}-${user.id}`} value={tab} onValueChange={setTab}>
         <TabsList>
           <TabsTrigger value="checklist">
-            <ClipboardCheck /> My checklist
+            My checklist
           </TabsTrigger>
           {leader && (
             <TabsTrigger value="overview">
-              <LayoutDashboard /> HR overview
+              HR overview
             </TabsTrigger>
           )}
           <TabsTrigger value="policies">
-            <ScrollText /> Policy acknowledgement
+            Policy acknowledgement
           </TabsTrigger>
           <TabsTrigger value="probation">
-            <Hourglass /> Probation
+            Probation
           </TabsTrigger>
         </TabsList>
         <TabsContent value="checklist">

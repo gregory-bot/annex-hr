@@ -1,5 +1,4 @@
 import { Link } from 'react-router-dom'
-import { Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { Reveal, SectionHeading } from './Reveal'
@@ -106,7 +105,7 @@ export function Pricing({ onContactSales }: { onContactSales: () => void }) {
                   <ul className="mt-8 grid grid-cols-1 gap-3 border-t pt-6 text-sm">
                     {plan.features.map((f) => (
                       <li key={f} className="flex gap-2.5">
-                        <Check className="mt-0.5 size-4 shrink-0 text-primary" />
+                        <span aria-hidden className="mt-2 size-1.5 shrink-0 rounded-full bg-primary/70" />
                         <span>{f}</span>
                       </li>
                     ))}

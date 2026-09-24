@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { ArrowDown, ArrowRight, BookOpen, CheckCircle2, Database, Landmark, Loader2, PlugZap, ShieldCheck, Sparkles, Users } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useWorkspace } from '@/context/auth'
 import { Badge } from '@/components/ui/badge'
@@ -8,7 +8,6 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Section } from '@/components/shared/Section'
-import { Fragment } from 'react'
 
 const MAPPINGS: { rule: string; code: string; account: string; side: 'Debit' | 'Credit' }[] = [
   { rule: 'Basic salary', code: 'BASIC', account: '6100 Salaries & Wages', side: 'Debit' },
@@ -25,10 +24,10 @@ const MAPPINGS: { rule: string; code: string; account: string; side: 'Debit' | '
 ]
 
 const FLOW = [
-  { icon: Sparkles, title: 'Generated in Annex HR', body: 'Attendance, leave and bonuses feed the payroll draft.' },
-  { icon: Users, title: 'Approved in Annex HR', body: 'Finance → HR → CEO sign-off with full audit trail.' },
-  { icon: BookOpen, title: 'Journal posted to Odoo', body: 'One balanced entry in the Salaries journal (SAL).' },
-  { icon: Landmark, title: 'Paid from Odoo', body: 'Accountant validates and exports the bank payment batch.' },
+  { title: 'Generated in Annex HR', body: 'Attendance, leave and bonuses feed the payroll draft.' },
+  { title: 'Approved in Annex HR', body: 'Finance → HR → CEO sign-off with full audit trail.' },
+  { title: 'Journal posted to Odoo', body: 'One balanced entry in the Salaries journal (SAL).' },
+  { title: 'Paid from Odoo', body: 'Accountant validates and exports the bank payment batch.' },
 ]
 
 export function IntegrationsTab() {
@@ -49,14 +48,9 @@ export function IntegrationsTab() {
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
           <Card className="h-full p-5">
             <div className="flex items-start justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="flex size-11 items-center justify-center rounded-xl bg-accent text-accent-foreground">
-                  <Database className="size-5" />
-                </div>
-                <div>
-                  <div className="font-semibold">Odoo Accounting</div>
-                  <div className="text-xs text-muted-foreground">Payroll journal & approvals</div>
-                </div>
+              <div>
+                <div className="font-semibold tracking-tight">Odoo Accounting</div>
+                <div className="text-xs text-muted-foreground">Payroll journal & approvals</div>
               </div>
               <Badge variant="success" dot>
                 Connected
@@ -78,10 +72,10 @@ export function IntegrationsTab() {
             </dl>
             <div className="mt-4 flex flex-wrap gap-2">
               <Button variant="outline" onClick={test} disabled={testing}>
-                {testing ? <Loader2 className="animate-spin" /> : <PlugZap />} {testing ? 'Testing…' : 'Test connection'}
+                {testing && <Loader2 className="animate-spin" />} {testing ? 'Testing…' : 'Test connection'}
               </Button>
               <Badge variant="muted" className="h-9 px-3">
-                <ShieldCheck /> TLS 1.3 · IP allow-listed
+                TLS 1.3 · IP allow-listed
               </Badge>
             </div>
           </Card>
@@ -116,37 +110,22 @@ export function IntegrationsTab() {
       </div>
 
       <Section title="Payroll approvals on Odoo" description="Annex HR owns the people data and approvals; Odoo owns the ledger and the money movement.">
-        <div className="flex flex-col items-stretch gap-2 lg:flex-row lg:items-center">
+        <ol className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
           {FLOW.map((f, i) => (
-            <Fragment key={f.title}>
-              <motion.div
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.08 }}
-                className="flex flex-1 items-start gap-3 rounded-xl border bg-subtle p-4"
-              >
-                <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-card text-primary shadow-sm">
-                  <f.icon className="size-4" />
-                </span>
-                <div className="min-w-0">
-                  <div className="text-sm font-semibold">
-                    <span className="mr-1 text-muted-foreground tabular">{i + 1}.</span>
-                    {f.title}
-                  </div>
-                  <div className="mt-0.5 text-xs text-muted-foreground">{f.body}</div>
-                </div>
-              </motion.div>
-              {i < FLOW.length - 1 && (
-                <div className="flex justify-center text-muted-foreground">
-                  <ArrowDown className="size-4 lg:hidden" />
-                  <ArrowRight className="hidden size-4 lg:block" />
-                </div>
-              )}
-            </Fragment>
+            <motion.li
+              key={f.title}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.08 }}
+              className="min-w-0 rounded-xl border bg-subtle p-4"
+            >
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-primary tabular">Step {i + 1}</div>
+              <div className="mt-1 text-sm font-semibold">{f.title}</div>
+              <div className="mt-0.5 text-xs text-muted-foreground">{f.body}</div>
+            </motion.li>
           ))}
-        </div>
-        <div className="mt-4 flex items-start gap-2 rounded-lg bg-success-soft p-3 text-xs text-success">
-          <CheckCircle2 className="mt-0.5 size-4 shrink-0" />
+        </ol>
+        <div className="mt-4 rounded-lg bg-success-soft p-3 text-xs text-success">
           Journal entries post as drafts. Nothing moves in Odoo until all three Annex HR approvals are complete.
         </div>
       </Section>

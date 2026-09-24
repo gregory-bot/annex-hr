@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import smtplib
 import ssl
+import time
 from dataclasses import dataclass
 from email.message import EmailMessage
 from email.utils import formataddr, make_msgid
@@ -46,8 +47,30 @@ def _send_resend(msg: Email) -> str:
     return r.json().get("id", "")
 
 
+_brevo_senders: tuple[float, set[str]] | None = None
+
+
+def _brevo_verified_senders() -> set[str]:
+    """Active senders on the Brevo account (cached for 10 minutes).
+
+    Brevo accepts a send request even when the sender isn't verified, then drops the
+    email asynchronously — so we check up front and fall back to the next provider instead.
+    """
+    global _brevo_senders
+    now = time.monotonic()
+    if _brevo_senders and now - _brevo_senders[0] < 600:
+        return _brevo_senders[1]
+    r = httpx.get("https://api.brevo.com/v3/senders", headers={"api-key": settings.BREVO_API_KEY, "accept": "application/json"}, timeout=15)
+    r.raise_for_status()
+    active = {s["email"].lower() for s in r.json().get("senders", []) if s.get("active")}
+    _brevo_senders = (now, active)
+    return active
+
+
 def _send_brevo(msg: Email) -> str:
     name, address = _sender()
+    if address.lower() not in _brevo_verified_senders():
+        raise EmailError(f"Brevo sender {address} is not verified on this Brevo account")
     r = httpx.post(
         "https://api.brevo.com/v3/smtp/email",
         headers={"api-key": settings.BREVO_API_KEY, "accept": "application/json"},

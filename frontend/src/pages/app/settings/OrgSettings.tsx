@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
-import { CalendarPlus, ScrollText, Upload } from 'lucide-react'
 import { toast } from 'sonner'
 import { Section } from '@/components/shared/Section'
 import { Badge } from '@/components/ui/badge'
@@ -15,7 +14,7 @@ import { useWorkspace } from '@/context/auth'
 import type { Holiday, Policy } from '@/data/types'
 import { cn, daysUntil, formatDate } from '@/lib/utils'
 import { InviteForm, PendingInvitesTable } from '../people/InviteDialog'
-import type { PendingInvite } from '../people/helpers'
+import { useInvites } from '../people/useInvites'
 import { ChipEditor } from './shared'
 
 /* --------------------------- Holiday calendars --------------------------- */
@@ -48,7 +47,7 @@ export function HolidayCalendars() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm text-muted-foreground">Public holidays are excluded from leave day counts and attendance for employees in that country.</p>
         <Button onClick={() => setOpen(true)} className="shrink-0">
-          <CalendarPlus /> Add holiday
+          Add holiday
         </Button>
       </div>
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -192,10 +191,7 @@ export function PoliciesSettings() {
       <ul className="divide-y border-t">
         {policies.map((p) => (
           <li key={p.id} className="flex flex-col gap-3 px-5 py-4 lg:flex-row lg:items-center">
-            <div className="flex min-w-0 flex-1 items-start gap-3">
-              <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-accent text-primary">
-                <ScrollText className="size-4" />
-              </div>
+            <div className="min-w-0 flex-1">
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-sm font-medium">{p.title}</span>
@@ -209,7 +205,7 @@ export function PoliciesSettings() {
                 </div>
               </div>
             </div>
-            <div className="flex flex-wrap items-center gap-4 pl-12 lg:pl-0">
+            <div className="flex flex-wrap items-center gap-4">
               <div className="w-32">
                 <div className="mb-1 flex justify-between text-[11px] text-muted-foreground">
                   <span>Acknowledged</span>
@@ -228,7 +224,7 @@ export function PoliciesSettings() {
                 Mandatory
               </label>
               <Button variant="outline" size="sm" onClick={() => publish(p)}>
-                <Upload /> Publish new version
+                Publish new version
               </Button>
             </div>
           </li>
@@ -241,35 +237,31 @@ export function PoliciesSettings() {
 /* ------------------------------ Invite users ----------------------------- */
 
 export function InviteUsers() {
-  const { departments, workspace, employees } = useWorkspace()
-  // Derive the company's email domain from an existing employee address.
-  const domain = employees[0]?.email.split('@')[1] ?? `${workspace.slug}.com`
-  const [invites, setInvites] = useState<PendingInvite[]>(() => [
-    { id: 'seed-1', email: `mercy.chebet@${domain}`, departmentId: departments[0]!.id, role: 'employee', sent: '2026-09-21' },
-    { id: 'seed-2', email: `ivan.kilonzo@${domain}`, departmentId: departments[1 % departments.length]!.id, role: 'consultant', sent: '2026-09-19' },
-    { id: 'seed-3', email: `halima.ali@${domain}`, departmentId: departments[2 % departments.length]!.id, role: 'manager', sent: '2026-09-16' },
-  ])
+  const { departments } = useWorkspace()
+  const { invites, send, resend, revoke } = useInvites()
   return (
     <div className="grid grid-cols-1 gap-4 xl:grid-cols-5">
       <Section title="Invite users" description="Invite by email. Roles can be changed later under Roles & permissions." className="xl:col-span-2">
-        <InviteForm departments={departments} onSent={(inv) => setInvites((p) => [...inv, ...p])} />
+        <InviteForm departments={departments} onSend={send} />
       </Section>
       <div className="min-w-0 xl:col-span-3">
         <div className="mb-3 flex items-baseline justify-between">
           <h3 className="text-[15px] font-semibold">Pending invites</h3>
-          <span className="text-xs text-muted-foreground">Links expire after 7 days</span>
+          <span className="text-xs text-muted-foreground">Links expire after 14 days</span>
         </div>
         <PendingInvitesTable
           invites={invites}
           departments={departments}
-          onRevoke={(id) => {
-            setInvites((p) => p.filter((x) => x.id !== id))
-            toast.success('Invitation revoked')
-          }}
-          onResend={(inv) => {
-            setInvites((p) => p.map((x) => (x.id === inv.id ? { ...x, sent: '2026-09-23' } : x)))
-            toast.success('Invitation resent', { description: inv.email })
-          }}
+          onRevoke={(id) =>
+            revoke(id)
+              .then(() => toast.success('Invitation revoked'))
+              .catch((err: Error) => toast.error('Could not revoke', { description: err.message }))
+          }
+          onResend={(inv) =>
+            resend(inv.id)
+              .then(() => toast.success('Invitation resent', { description: inv.email }))
+              .catch((err: Error) => toast.error('Could not resend', { description: err.message }))
+          }
         />
       </div>
     </div>

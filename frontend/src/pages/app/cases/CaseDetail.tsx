@@ -1,20 +1,6 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import {
-  ArrowRight,
-  Check,
-  CircleCheck,
-  Eye,
-  FileText,
-  Gavel,
-  Lock,
-  MessageSquarePlus,
-  Paperclip,
-  Scale,
-  ShieldCheck,
-  UserCheck,
-  X,
-} from 'lucide-react'
+import { Check, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -40,8 +26,7 @@ function stamp(at: string) {
   return `${formatDate(d!, 'medium')}${t ? ` · ${t}` : ''}`
 }
 
-const timelineIcon = (title: string) =>
-  /closed/i.test(title) ? CircleCheck : /hearing/i.test(title) ? Gavel : /statement|evidence/i.test(title) ? Paperclip : /assign/i.test(title) ? UserCheck : FileText
+const fileType = (name: string) => (name.includes('.') ? name.split('.').pop()!.slice(0, 4).toUpperCase() : 'FILE')
 
 export function CaseDetail({
   record,
@@ -153,16 +138,14 @@ export function CaseDetail({
             <span>·</span>
             <span>{r.type}</span>
             {r.confidential && (
-              <Badge variant="soft">
-                <Lock /> Confidential
-              </Badge>
+              <Badge variant="soft">Confidential</Badge>
             )}
           </div>
           <SheetTitle className="mt-2 flex flex-wrap items-center gap-2">
             {masked ? <span className="select-none tracking-widest text-muted-foreground">{MASK}</span> : subjectName}
             {masked && (
               <Button size="sm" variant="soft" onClick={onRequestReveal}>
-                <Eye /> Reveal
+                Reveal
               </Button>
             )}
           </SheetTitle>
@@ -186,16 +169,14 @@ export function CaseDetail({
                 </div>
               </div>
               {r.status === 'Closed' ? (
-                <Badge variant="success">
-                  <Check /> Resolved
-                </Badge>
+                <Badge variant="success">Resolved</Badge>
               ) : r.status === 'Awaiting Approval' ? (
                 <Button size="sm" variant="outline" disabled={!approvalsDone}>
                   Awaiting sign-off
                 </Button>
               ) : (
                 <Button size="sm" onClick={advance}>
-                  Advance to next stage <ArrowRight />
+                  Advance to next stage
                 </Button>
               )}
             </div>
@@ -224,14 +205,11 @@ export function CaseDetail({
                   title: t.title,
                   meta: `${formatDate(t.date)} · ${t.by}`,
                   body: t.note,
-                  icon: timelineIcon(t.title),
                   state: i === r.timeline.length - 1 && r.status !== 'Closed' ? 'current' : 'done',
                 }))}
               />
               <div className="grid grid-cols-1 gap-3 rounded-xl border p-4">
-                <div className="flex items-center gap-2 text-sm font-semibold">
-                  <MessageSquarePlus className="size-4 text-primary" /> Add update
-                </div>
+                <div className="text-sm font-semibold">Add update</div>
                 <Input value={updateTitle} onChange={(e) => setUpdateTitle(e.target.value)} placeholder="e.g. Witness interview completed" />
                 <Textarea value={updateNote} onChange={(e) => setUpdateNote(e.target.value)} placeholder="Summary of what happened (visible to the case team)" className="min-h-[70px]" />
                 <div className="flex justify-end">
@@ -252,18 +230,14 @@ export function CaseDetail({
                     transition={{ delay: i * 0.04 }}
                     className="flex items-center gap-3 p-3"
                   >
-                    <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-accent text-primary">
-                      <Paperclip className="size-4" />
-                    </span>
+                    <span className="w-9 shrink-0 font-mono text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{fileType(ev.name)}</span>
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-sm font-medium">{ev.name}</div>
                       <div className="text-xs text-muted-foreground">
                         {ev.size} · uploaded {formatDate(ev.uploaded)}
                       </div>
                     </div>
-                    <Badge variant="muted">
-                      <ShieldCheck /> Hashed
-                    </Badge>
+                    <Badge variant="muted">Hashed</Badge>
                   </motion.li>
                 ))}
                 {r.evidence.length === 0 && <li className="p-4 text-sm text-muted-foreground">No evidence uploaded yet.</li>}
@@ -288,13 +262,10 @@ export function CaseDetail({
                 <div className="grid grid-cols-1 content-start gap-2">
                   <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     HR notes
-                    <Badge variant="soft">
-                      <Lock /> HR only
-                    </Badge>
+                    <Badge variant="soft">HR only</Badge>
                   </div>
                   {isManager ? (
-                    <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed bg-muted/40 p-6 text-center">
-                      <Lock className="size-5 text-muted-foreground" />
+                    <div className="flex flex-col items-center gap-1 rounded-lg border border-dashed bg-muted/40 p-6 text-center">
                       <div className="text-sm font-medium">Restricted to HR</div>
                       <p className="text-xs text-muted-foreground">HR notes are not visible to line managers.</p>
                     </div>
@@ -365,17 +336,17 @@ export function CaseDetail({
                         (canAct ? (
                           <>
                             <Button size="sm" variant="outline" onClick={() => decide(a.key, false)}>
-                              <X /> Reject
+                              Reject
                             </Button>
                             <Button size="sm" onClick={() => decide(a.key, true)}>
-                              <Check /> Approve
+                              Approve
                             </Button>
                           </>
                         ) : (
                           <Tip label={`Only ${a.key === 'ceo' ? 'the CEO' : a.key === 'hr' ? 'the HR Head' : 'the investigator'} can act on this stage`}>
                             <span>
                               <Button size="sm" variant="outline" disabled>
-                                <Lock /> Awaiting {a.key === 'ceo' ? 'CEO' : 'HR'}
+                                Awaiting {a.key === 'ceo' ? 'CEO' : 'HR'}
                               </Button>
                             </span>
                           </Tip>
@@ -384,8 +355,8 @@ export function CaseDetail({
                   </motion.div>
                 )
               })}
-              <p className="flex items-center gap-2 text-xs text-muted-foreground">
-                <Scale className="size-3.5" /> Sanctions take effect only after CEO sign-off. Rejections return the case to investigation.
+              <p className="text-xs text-muted-foreground">
+                Sanctions take effect only after CEO sign-off. Rejections return the case to investigation.
               </p>
             </TabsContent>
 

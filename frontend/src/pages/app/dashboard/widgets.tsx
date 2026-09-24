@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { toast } from 'sonner'
-import { Cake, CalendarCheck, CalendarDays, CalendarPlus, Clock, Mic, PartyPopper, Plus, TicketPlus, Trash2, UserPlus, Users, Wallet, type LucideIcon } from 'lucide-react'
+import { Plus, Trash2 } from 'lucide-react'
 import { Section } from '@/components/shared/Section'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { Legend, SERIES } from '@/components/charts/ChartKit'
@@ -98,7 +98,7 @@ export function ClockInList({ roster, className }: { roster: RosterEntry[]; clas
       </div>
       <div className="flex shrink-0 flex-col items-end gap-0.5">
         <Badge variant="muted" className="tabular">
-          <Clock className="size-3" /> {minutesToHM(r.inMin ?? 0)}
+          {minutesToHM(r.inMin ?? 0)}
         </Badge>
         {r.lateMin !== undefined && <span className="text-[11px] text-warning tabular">{r.lateMin} min late</span>}
       </div>
@@ -144,16 +144,16 @@ export function ClockInList({ roster, className }: { roster: RosterEntry[]; clas
 export interface QuickLink {
   label: string
   href: string
-  icon: LucideIcon
+  hint: string
 }
 
 export const QUICK_LINKS: Record<string, QuickLink> = {
-  apply: { label: 'Apply leave', href: '/app/leave?apply=1', icon: CalendarPlus },
-  approvals: { label: 'Leave approvals', href: '/app/leave?tab=approvals', icon: CalendarCheck },
-  calendar: { label: 'Leave calendar', href: '/app/leave?tab=calendar', icon: CalendarDays },
-  invite: { label: 'Invite employee', href: '/app/people?invite=1', icon: UserPlus },
-  payroll: { label: 'Run payroll', href: '/app/payroll', icon: Wallet },
-  ticket: { label: 'New ticket', href: '/app/tickets?new=1', icon: TicketPlus },
+  apply: { label: 'Apply leave', href: '/app/leave?apply=1', hint: 'Request time off' },
+  approvals: { label: 'Leave approvals', href: '/app/leave?tab=approvals', hint: 'Pending requests' },
+  calendar: { label: 'Leave calendar', href: '/app/leave?tab=calendar', hint: 'Who is away' },
+  invite: { label: 'Invite employee', href: '/app/people?invite=1', hint: 'Send an invite' },
+  payroll: { label: 'Run payroll', href: '/app/payroll', hint: 'Current period' },
+  ticket: { label: 'New ticket', href: '/app/tickets?new=1', hint: 'HR & IT help' },
 }
 
 export function QuickAccess({ links, className }: { links: QuickLink[]; className?: string }) {
@@ -162,11 +162,9 @@ export function QuickAccess({ links, className }: { links: QuickLink[]; classNam
       <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-2 xl:grid-cols-3">
         {links.map((l) => (
           <li key={l.href}>
-            <Link to={l.href} className="flex h-full flex-col items-center gap-2 rounded-lg border px-2 py-3.5 text-center transition-colors hover:border-primary/30 hover:bg-accent/50">
-              <span className="flex size-9 items-center justify-center rounded-lg bg-accent text-accent-foreground">
-                <l.icon className="size-4" />
-              </span>
-              <span className="text-xs font-medium leading-tight">{l.label}</span>
+            <Link to={l.href} className="flex h-full flex-col justify-center gap-0.5 rounded-lg border px-3 py-3 transition-colors hover:border-primary/30 hover:bg-accent/50">
+              <span className="text-[13px] font-medium leading-tight">{l.label}</span>
+              <span className="truncate text-xs text-muted-foreground">{l.hint}</span>
             </Link>
           </li>
         ))}
@@ -177,7 +175,7 @@ export function QuickAccess({ links, className }: { links: QuickLink[]; classNam
 
 /* ─────────────── Upcoming events ─────────────── */
 
-const kindIcon: Record<EventKind, LucideIcon> = { Interview: Mic, Meeting: Users, Holiday: PartyPopper, Birthday: Cake }
+const kindDot: Record<EventKind, string> = { Interview: 'bg-primary', Meeting: 'bg-info', Holiday: 'bg-success', Birthday: 'bg-warning' }
 
 export function UpcomingEvents({ events: all, max = 5, className, description }: { events: DashEvent[]; max?: number; className?: string; description?: string }) {
   const events = all.slice(0, max)
@@ -185,7 +183,7 @@ export function UpcomingEvents({ events: all, max = 5, className, description }:
   return (
     <Section title="Upcoming events" description={description} className={cn('h-full', className)}>
       {days.length === 0 ? (
-        <EmptyState icon={CalendarDays} title="Nothing scheduled" />
+        <EmptyState title="Nothing scheduled" />
       ) : (
         <div className="space-y-4">
           {days.map((d) => (
@@ -195,11 +193,10 @@ export function UpcomingEvents({ events: all, max = 5, className, description }:
                 {events
                   .filter((e) => e.date === d)
                   .map((e) => {
-                    const Icon = kindIcon[e.kind]
                     return (
                       <li key={e.id} className="rounded-lg border p-2.5">
                         <div className="flex items-center gap-2">
-                          <Icon className="size-3.5 shrink-0 text-primary" aria-hidden />
+                          <span className={cn('size-2 shrink-0 rounded-full', kindDot[e.kind])} aria-hidden />
                           <span className="min-w-0 flex-1 truncate text-sm font-medium">{e.title}</span>
                         </div>
                         <div className="mt-1.5 flex items-center gap-2 text-xs text-muted-foreground">
@@ -236,7 +233,7 @@ export function OnLeaveToday({ people, className }: { people: { employee: Employ
       }
     >
       {people.length === 0 ? (
-        <EmptyState icon={CalendarCheck} title="Everyone is in today" />
+        <EmptyState title="Everyone is in today" />
       ) : (
         <ul className="divide-y">
           {people.slice(0, 6).map(({ employee: e, type, end }) => (

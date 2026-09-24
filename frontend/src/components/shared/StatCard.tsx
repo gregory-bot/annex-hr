@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { ArrowDownRight, ArrowUpRight, type LucideIcon } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 import { AnimatedNumber } from './AnimatedNumber'
@@ -8,7 +8,6 @@ export function StatCard({
   label,
   value,
   format,
-  icon: Icon,
   delta,
   deltaLabel,
   hint,
@@ -19,6 +18,7 @@ export function StatCard({
   label: string
   value: number | string
   format?: (n: number) => string
+  /** @deprecated Icons are no longer rendered on stat cards; kept for backward compatibility. */
   icon?: LucideIcon
   delta?: number
   deltaLabel?: string
@@ -38,20 +38,19 @@ export function StatCard({
         tone === 'primary' && 'border-transparent bg-gradient-to-br from-primary to-[#8f0d17] text-white',
       )}
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className={cn('text-[13px] font-medium text-muted-foreground', tone === 'primary' && 'text-white/80')}>{label}</div>
-        {Icon && (
-          <div
+      <div className="flex items-center gap-2">
+        {tone !== 'default' && (
+          <span
+            aria-hidden
             className={cn(
-              'flex size-8 shrink-0 items-center justify-center rounded-lg bg-accent text-accent-foreground',
-              tone === 'primary' && 'bg-white/15 text-white',
-              tone === 'warning' && 'bg-warning-soft text-warning',
-              tone === 'success' && 'bg-success-soft text-success',
+              'size-1.5 shrink-0 rounded-full',
+              tone === 'primary' && 'bg-white/80',
+              tone === 'warning' && 'bg-warning',
+              tone === 'success' && 'bg-success',
             )}
-          >
-            <Icon className="size-4" />
-          </div>
+          />
         )}
+        <div className={cn('truncate text-[13px] font-medium text-muted-foreground', tone === 'primary' && 'text-white/80')}>{label}</div>
       </div>
       <div className="mt-2 text-2xl font-bold tracking-tight tabular sm:text-[28px]">
         {typeof value === 'number' ? <AnimatedNumber value={value} format={format} /> : value}
@@ -61,12 +60,12 @@ export function StatCard({
           {delta !== undefined && (
             <span
               className={cn(
-                'inline-flex items-center gap-0.5 font-semibold',
+                'font-semibold tabular',
                 up ? 'text-success' : 'text-danger',
                 tone === 'primary' && 'text-white',
               )}
             >
-              {up ? <ArrowUpRight className="size-3.5" /> : <ArrowDownRight className="size-3.5" />}
+              {up ? '+' : '−'}
               {Math.abs(delta)}%
             </span>
           )}

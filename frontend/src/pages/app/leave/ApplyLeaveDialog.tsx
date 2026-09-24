@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { ArrowRight, CalendarCheck2, Info } from 'lucide-react'
 import type { DateRange } from 'react-day-picker'
 import { toast } from 'sonner'
 import type { Employee, Holiday, LeaveRequest, LeaveType } from '@/data/types'
@@ -126,14 +125,9 @@ export function ApplyLeaveDialog({
               </div>
 
               <div className={cn('flex items-center justify-between gap-3 rounded-xl border p-3.5', over ? 'border-warning/40 bg-warning-soft' : 'bg-subtle')}>
-                <div className="flex items-center gap-3">
-                  <div className="flex size-10 items-center justify-center rounded-lg bg-accent text-primary">
-                    <CalendarCheck2 className="size-5" />
-                  </div>
-                  <div>
-                    <div className="text-xs text-muted-foreground">Working days</div>
-                    <div className="text-xl font-bold tabular">{days}</div>
-                  </div>
+                <div>
+                  <div className="text-xs text-muted-foreground">Working days</div>
+                  <div className="text-xl font-bold tabular">{days}</div>
                 </div>
                 <div className="text-right text-xs text-muted-foreground">
                   {calc?.excluded.length ? (
@@ -167,8 +161,8 @@ export function ApplyLeaveDialog({
               </div>
 
               <div>
-                <div className="mb-2 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-                  <Info className="size-3.5" /> Approval route
+                <div className="mb-2 text-xs font-medium text-muted-foreground">
+                  Approval route
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   {route.map((step, i) => (
@@ -176,7 +170,7 @@ export function ApplyLeaveDialog({
                       <Badge variant={i === 0 ? 'soft' : 'outline'} className="px-2.5 py-1 text-xs">
                         {i + 1}. {step}
                       </Badge>
-                      {i < route.length - 1 && <ArrowRight className="size-3.5 text-muted-foreground" />}
+                      {i < route.length - 1 && <span className="h-px w-3 bg-border" aria-hidden />}
                     </motion.div>
                   ))}
                   {route.length === 3 && <span className="text-xs text-muted-foreground">CEO sign-off: over 10 days or {type === 'Maternity' || type === 'Study' ? type : 'extended'} leave</span>}

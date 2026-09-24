@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Copy, KeyRound, Plus, ShieldCheck, X } from 'lucide-react'
+import { X } from 'lucide-react'
 import { toast } from 'sonner'
 import { Section } from '@/components/shared/Section'
 import { DataTable, type Column } from '@/components/shared/DataTable'
@@ -243,7 +243,7 @@ export function SecuritySettings() {
         >
           <Input value={ipDraft} onChange={(e) => setIpDraft(e.target.value)} placeholder="e.g. 102.68.76.0/24" className="font-mono" />
           <Button type="submit" variant="outline" className="h-10 shrink-0">
-            <Plus /> Add
+            Add
           </Button>
         </form>
         <ul className="mt-3 flex flex-wrap gap-2">
@@ -293,7 +293,7 @@ export function SecuritySettings() {
               Cancel
             </Button>
             <Button onClick={verify} disabled={code.length !== 6}>
-              <ShieldCheck /> Verify & enable
+              Verify & enable
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -443,7 +443,7 @@ export function ApiKeys() {
       description="Server-to-server access to the Annex HR REST API. Keys inherit workspace data residency."
       action={
         <Button size="sm" onClick={() => setOpen(true)}>
-          <Plus /> Create key
+          Create key
         </Button>
       }
       contentClassName="p-0"
@@ -451,10 +451,7 @@ export function ApiKeys() {
       <ul className="divide-y border-t">
         {keys.map((k) => (
           <li key={k.id} className={cn('flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center', k.status === 'Revoked' && 'opacity-60')}>
-            <div className="flex min-w-0 flex-1 items-start gap-3">
-              <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-accent text-primary">
-                <KeyRound className="size-4" />
-              </div>
+            <div className="min-w-0 flex-1">
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-sm font-medium">{k.name}</span>
@@ -504,7 +501,7 @@ export function ApiKeys() {
                   toast.success('Key copied')
                 }}
               >
-                <Copy /> Copy
+                Copy
               </Button>
             </div>
           ) : (

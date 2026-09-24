@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Lock, Wallet } from 'lucide-react'
 import { useWorkspace } from '@/context/auth'
 import type { PayrollRun } from '@/data/types'
 import { isAdminLike } from '@/lib/rbac'
@@ -50,7 +49,7 @@ function PayrollPage() {
     return (
       <>
         <PageHeader title="Payroll" />
-        <EmptyState icon={Lock} title="Payroll is restricted" description="Only HR, Finance and executives can view salary information." />
+        <EmptyState title="Payroll is restricted" description="Only HR, Finance and executives can view salary information." />
       </>
     )
   }
@@ -63,7 +62,7 @@ function PayrollPage() {
         description={`Kenyan statutory payroll for ${workspace.name} — PAYE, SHIF, NSSF and Housing Levy calculated automatically, approved in-app and synced to Odoo.`}
         actions={
           <Badge variant="outline" className="h-8 px-3">
-            <Lock /> Confidential · KES
+            Confidential · KES
           </Badge>
         }
       />
@@ -80,7 +79,6 @@ function PayrollPage() {
             <OverviewTab runs={runs} setRuns={setRuns} onReviewRun={() => setTab('run')} />
           ) : (
             <EmptyState
-              icon={Wallet}
               title="No payroll runs yet"
               description="Generate your first payroll to calculate PAYE, SHIF, NSSF and Housing Levy for every employee."
               action={<Button onClick={() => setTab('run')}>Generate payroll</Button>}

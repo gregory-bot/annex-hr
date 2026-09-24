@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { workspaceData, workspaces as mockWorkspaces, type WorkspaceData, type WorkspaceId } from '@/data/seed'
 import type { Employee, Role, Workspace } from '@/data/types'
 import { api, ApiError, errorMessage, USE_MOCK_API } from '@/lib/api'
@@ -23,6 +23,7 @@ export interface WorkspaceSummary {
   name: string
   domain: string
   logoText: string
+  logoUrl?: string | null
 }
 
 export interface RegisterInput {
@@ -54,6 +55,8 @@ interface AuthContextValue {
   data: WorkspaceData | null
   workspaces: WorkspaceSummary[]
   demoEnabled: boolean
+  /** True only for demo sessions in demo workspaces — the only time "View as" is offered. */
+  demoSession: boolean
   mock: boolean
   signIn: (slug: string, email: string, password: string) => Promise<Result>
   signInAs: (workspace: string, role: Role) => Promise<Result>
@@ -128,6 +131,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [remote, setRemote] = useState<WorkspaceData | null>(null)
   const [workspaceList, setWorkspaceList] = useState<WorkspaceSummary[]>(USE_MOCK_API ? mockSummaries : [])
   const [demoEnabled, setDemoEnabled] = useState(USE_MOCK_API)
+  const [demoSession, setDemoSession] = useState(USE_MOCK_API)
+
+  // Bumped on every sign-in/out so a slow session restore can't overwrite a newer sign-in.
+  const epoch = useRef(0)
+  const sessionRef = useRef<Session | null>(session)
+  sessionRef.current = session
 
   /** Adopts a server session and loads its workspace data. */
   const adopt = useCallback(async (payload: SessionPayload) => {
@@ -135,7 +144,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setRemote(data)
     setWorkspaceList(list)
     setDemoEnabled(payload.demoEnabled)
+    setDemoSession(payload.demo)
     setSession({ workspaceId: payload.workspace.id, userId: payload.user.id, role: payload.role })
+  }, [])
+
+  // The session is one cookie shared by every tab. When another tab signs in as someone
+  // else (or signs out), reload this tab so it never shows one person's view with another's session.
+  useEffect(() => {
+    if (USE_MOCK_API) return
+    const channel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('annex-hr-session') : null
+    const follow = (userId: string | null) => {
+      if ((sessionRef.current?.userId ?? null) === userId) return
+      window.location.replace(userId ? '/app' : '/login')
+    }
+    if (channel) channel.onmessage = (e: MessageEvent<{ userId: string | null }>) => follow(e.data.userId)
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible' || !sessionRef.current) return
+      const at = epoch.current
+      api
+        .get<{ session: SessionPayload | null }>('/auth/session')
+        .then(({ session: s }) => at === epoch.current && follow(s?.user.id ?? null))
+        .catch(() => undefined)
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      channel?.close()
+      document.removeEventListener('visibilitychange', onVisible)
+    }
+  }, [])
+
+  const announce = useCallback((userId: string | null) => {
+    if (typeof BroadcastChannel === 'undefined') return
+    const channel = new BroadcastChannel('annex-hr-session')
+    channel.postMessage({ userId })
+    channel.close()
   }, [])
 
   // Restore an existing cookie session on first load.
@@ -146,9 +188,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       .get<{ demoEnabled: boolean }>('/auth/config')
       .then((c) => !cancelled && setDemoEnabled(c.demoEnabled))
       .catch(() => undefined)
+    const at = epoch.current
     api
-      .get<SessionPayload>('/auth/me')
-      .then((p) => (cancelled ? undefined : adopt(p)))
+      .get<{ session: SessionPayload | null }>('/auth/session')
+      .then(({ session }) => (cancelled || at !== epoch.current || !session ? undefined : adopt(session)))
       .catch(() => undefined)
       .finally(() => !cancelled && setStatus('ready'))
     return () => {
@@ -158,14 +201,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const run = useCallback(
     async (fn: () => Promise<SessionPayload>): Promise<Result> => {
+      const at = ++epoch.current
       try {
-        await adopt(await fn())
+        const payload = await fn()
+        if (at !== epoch.current) return { ok: false, error: 'Superseded by a newer sign-in' }
+        await adopt(payload)
+        announce(payload.user.id)
         return { ok: true }
       } catch (err) {
         return { ok: false, error: errorMessage(err) }
       }
     },
-    [adopt],
+    [adopt, announce],
   )
 
   const setMock = useCallback((s: Session | null) => {
@@ -219,13 +266,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       try {
         const payload = await api.post<SessionPayload>('/auth/register/verify', { verificationId, code })
+        epoch.current++
         await adopt(payload)
+        announce(payload.user.id)
         return { ok: true, domain: payload.workspace.domain }
       } catch (err) {
         return { ok: false, error: errorMessage(err) }
       }
     },
-    [adopt, setMock],
+    [adopt, setMock, announce],
   )
 
   const resendRegistrationCode = useCallback<AuthContextValue['resendRegistrationCode']>(async (verificationId) => {
@@ -276,11 +325,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   )
 
   const signOut = useCallback(async () => {
+    epoch.current++
     if (!USE_MOCK_API) await api.post('/auth/logout').catch(() => undefined)
     saveMock(null)
     setSession(null)
     setRemote(null)
-  }, [])
+    announce(null)
+  }, [announce])
 
   const refresh = useCallback(async () => {
     if (USE_MOCK_API || !session) return
@@ -306,6 +357,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       data: data ?? null,
       workspaces: workspaceList,
       demoEnabled,
+      demoSession,
       mock: USE_MOCK_API,
       signIn,
       signInAs,
@@ -318,7 +370,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       signOut,
       refresh,
     }
-  }, [status, session, remote, workspaceList, demoEnabled, signIn, signInAs, startRegistration, verifyRegistration, resendRegistrationCode, acceptInvite, switchWorkspace, switchRole, signOut, refresh])
+  }, [status, session, remote, workspaceList, demoEnabled, demoSession, signIn, signInAs, startRegistration, verifyRegistration, resendRegistrationCode, acceptInvite, switchWorkspace, switchRole, signOut, refresh])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

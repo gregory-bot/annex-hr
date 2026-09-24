@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { Lock, MessageSquareQuote } from 'lucide-react'
 import { useWorkspace } from '@/context/auth'
 import type { Survey } from '@/data/types'
 import { Badge } from '@/components/ui/badge'
@@ -158,11 +157,7 @@ export function Results({ survey }: { survey: Survey }) {
 
       <Section
         title="Anonymous comments"
-        description={
-          <span className="inline-flex items-center gap-1.5">
-            <Lock className="size-3" /> Names are never stored. Department shown only when 5+ people responded.
-          </span>
-        }
+        description="Names are never stored. Department shown only when 5+ people responded."
       >
         <div className="mb-4 flex flex-wrap gap-1.5">
           {(['All', 'Positive', 'Neutral', 'Constructive'] as const).map((f) => (
@@ -186,8 +181,7 @@ export function Results({ survey }: { survey: Survey }) {
               transition={{ delay: i * 0.03 }}
               className="mb-3 break-inside-avoid rounded-xl border bg-subtle p-4"
             >
-              <MessageSquareQuote className="size-4 text-primary" />
-              <p className="mt-2 text-sm leading-relaxed">{c.text}</p>
+              <p className="text-sm leading-relaxed">{c.text}</p>
               <div className="mt-3 flex items-center justify-between gap-2 text-xs text-muted-foreground">
                 <span className="truncate">
                   {c.dept} · {c.ago}

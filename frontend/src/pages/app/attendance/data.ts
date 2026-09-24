@@ -1,5 +1,4 @@
 import { addDays, format, isWeekend, parseISO, startOfWeek } from 'date-fns'
-import { CalendarOff, CheckCircle2, Clock3, PartyPopper, TreePalm, XCircle, type LucideIcon } from 'lucide-react'
 import type { Employee, LeaveRequest, LeaveType } from '@/data/types'
 import { TODAY } from '@/lib/utils'
 
@@ -49,14 +48,13 @@ export function entryFor(seed: string, date: string): DayEntry {
 
 export type DayStatus = 'present' | 'late' | 'absent' | 'leave' | 'holiday' | 'weekend' | 'upcoming'
 
-export const statusMeta: Record<Exclude<DayStatus, 'weekend' | 'upcoming'>, { label: string; icon: LucideIcon; cell: string; dot: string }> = {
-  present: { label: 'Present', icon: CheckCircle2, cell: 'bg-success-soft text-success', dot: 'bg-success' },
-  late: { label: 'Late', icon: Clock3, cell: 'bg-warning-soft text-warning', dot: 'bg-warning' },
-  absent: { label: 'Absent', icon: XCircle, cell: 'bg-danger-soft text-danger', dot: 'bg-danger' },
-  leave: { label: 'On leave', icon: TreePalm, cell: 'bg-info-soft text-info', dot: 'bg-info' },
-  holiday: { label: 'Holiday', icon: PartyPopper, cell: 'bg-accent text-accent-foreground', dot: 'bg-primary' },
+export const statusMeta: Record<Exclude<DayStatus, 'weekend' | 'upcoming'>, { label: string; cell: string; dot: string }> = {
+  present: { label: 'Present', cell: 'bg-success-soft text-success', dot: 'bg-success' },
+  late: { label: 'Late', cell: 'bg-warning-soft text-warning', dot: 'bg-warning' },
+  absent: { label: 'Absent', cell: 'bg-danger-soft text-danger', dot: 'bg-danger' },
+  leave: { label: 'On leave', cell: 'bg-info-soft text-info', dot: 'bg-info' },
+  holiday: { label: 'Holiday', cell: 'bg-accent text-accent-foreground', dot: 'bg-primary' },
 }
-export const offIcon = CalendarOff
 
 export function personalStatus(seed: string, date: string, holidays: Set<string>): DayStatus {
   const d = parseISO(date)

@@ -1,5 +1,4 @@
 import { addDays, format, parseISO } from 'date-fns'
-import { CreditCard, GitBranch, IdCard, Laptop, Mail, MessageSquare, Smartphone, type LucideIcon } from 'lucide-react'
 import type { Employee, Offboarding, Role } from '@/data/types'
 import { daysUntil } from '@/lib/utils'
 
@@ -39,20 +38,19 @@ export type Condition = 'Good' | 'Fair' | 'Damaged' | 'Lost'
 export interface AssetItem {
   key: string
   name: string
-  icon: LucideIcon
   tag: string
   condition: Condition
   returned: boolean
   valueKES: number
 }
 
-const ASSET_META: Record<string, { icon: LucideIcon; prefix: string; value: number; label: string }> = {
-  Laptop: { icon: Laptop, prefix: 'LT', value: 145_000, label: 'Laptop' },
-  'Access card': { icon: IdCard, prefix: 'AC', value: 1_500, label: 'Access card' },
-  'SIM card': { icon: Smartphone, prefix: 'SIM', value: 1_000, label: 'SIM card' },
-  'Email account': { icon: Mail, prefix: 'EM', value: 0, label: 'Email' },
-  'GitHub access': { icon: GitBranch, prefix: 'GH', value: 0, label: 'GitHub' },
-  'Slack access': { icon: MessageSquare, prefix: 'SL', value: 0, label: 'Slack' },
+const ASSET_META: Record<string, { prefix: string; value: number; label: string }> = {
+  Laptop: { prefix: 'LT', value: 145_000, label: 'Laptop' },
+  'Access card': { prefix: 'AC', value: 1_500, label: 'Access card' },
+  'SIM card': { prefix: 'SIM', value: 1_000, label: 'SIM card' },
+  'Email account': { prefix: 'EM', value: 0, label: 'Email' },
+  'GitHub access': { prefix: 'GH', value: 0, label: 'GitHub' },
+  'Slack access': { prefix: 'SL', value: 0, label: 'Slack' },
 }
 
 export interface Approval {
@@ -87,11 +85,10 @@ export function buildRecord(o: Offboarding, emp: Employee | undefined, prefix: s
     checklist[c.id] = c.id === 'mgr-handover' ? o.handover : !isNew && i < target
   })
   const assetItems: AssetItem[] = o.assets.map((a, i) => {
-    const meta = ASSET_META[a.name] ?? { icon: CreditCard, prefix: 'AS', value: 0, label: a.name }
+    const meta = ASSET_META[a.name] ?? { prefix: 'AS', value: 0, label: a.name }
     return {
       key: a.name,
       name: meta.label,
-      icon: meta.icon,
       tag: meta.value > 0 ? `${prefix}-${meta.prefix}-${String(100 + ((h + i * 37) % 900)).padStart(4, '0')}` : emp ? emp.email : 'Account',
       condition: 'Good',
       returned: a.returned,

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
-import { Check, CheckCircle2, PackageX } from 'lucide-react'
+import { Check } from 'lucide-react'
 import { toast } from 'sonner'
 import { useWorkspace } from '@/context/auth'
 import { Badge } from '@/components/ui/badge'
@@ -65,12 +65,7 @@ export function FinalDuesTab() {
                 <Row label={`Leave encashment · ${it.leaveDays} days`} value={it.leave} />
                 <Row label={it.noticeDays ? `Notice pay in lieu · ${it.noticeDays} days` : 'Notice pay · served in full'} value={it.notice} />
                 <Row
-                  label={
-                    <span className="inline-flex items-center gap-1.5">
-                      <PackageX className="size-3.5 text-muted-foreground" />
-                      {it.lost.length ? `Assets not returned: ${it.lost.map((a) => a.name).join(', ')}` : 'All company assets returned'}
-                    </span>
-                  }
+                  label={it.lost.length ? `Assets not returned: ${it.lost.map((a) => a.name).join(', ')}` : 'All company assets returned'}
                   value={-it.deductions}
                 />
                 <Separator className="my-1.5" />
@@ -101,11 +96,11 @@ export function FinalDuesTab() {
                 <div className="mt-3 flex justify-end">
                   {complete ? (
                     <Badge variant="success" className="h-8 px-3">
-                      <CheckCircle2 /> Ready for bank run
+                      Ready for bank run
                     </Badge>
                   ) : (
                     <Button size="sm" onClick={() => approve(it.o.id, it.e.name)}>
-                      <CheckCircle2 /> Approve as {CHAIN[s]}
+                      Approve as {CHAIN[s]}
                     </Button>
                   )}
                 </div>

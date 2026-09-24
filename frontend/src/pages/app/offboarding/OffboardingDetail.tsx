@@ -1,5 +1,4 @@
 import { motion } from 'framer-motion'
-import { FileText, Lock, TriangleAlert } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -166,8 +165,8 @@ export function OffboardingDetail({
               <ul className="divide-y rounded-xl border">
                 {r.handoverDocs.map((d, i) => (
                   <motion.li key={d.name + i} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-3 p-3">
-                    <span className="flex size-8 items-center justify-center rounded-lg bg-accent text-primary">
-                      <FileText className="size-4" />
+                    <span className="w-9 shrink-0 font-mono text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      {d.name.includes('.') ? d.name.split('.').pop()!.slice(0, 4).toUpperCase() : 'FILE'}
                     </span>
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-sm font-medium">{d.name}</div>
@@ -194,19 +193,15 @@ export function OffboardingDetail({
 
             <TabsContent value="assets" className="grid grid-cols-1 gap-3">
               {outstanding > 0 ? (
-                <motion.div layout className="flex items-start gap-3 rounded-xl border border-warning/30 bg-warning-soft p-3">
-                  <TriangleAlert className="mt-0.5 size-4 shrink-0 text-warning" />
-                  <div className="text-sm">
-                    <span className="font-semibold">{formatKES(outstanding)} outstanding.</span>{' '}
-                    <span className="text-muted-foreground">Unreturned or damaged property will be recovered from final dues.</span>
-                  </div>
+                <motion.div layout className="rounded-xl border border-warning/30 bg-warning-soft p-3 text-sm">
+                  <span className="font-semibold">{formatKES(outstanding)} outstanding.</span>{' '}
+                  <span className="text-muted-foreground">Unreturned or damaged property will be recovered from final dues.</span>
                 </motion.div>
               ) : (
                 <div className="rounded-xl border bg-success-soft p-3 text-sm font-medium text-success">All company property recovered.</div>
               )}
               <ul className="grid grid-cols-1 gap-2">
                 {r.assetItems.map((a, i) => {
-                  const Icon = a.icon
                   return (
                     <motion.li
                       key={a.key}
@@ -216,9 +211,7 @@ export function OffboardingDetail({
                       className={cn('grid gap-3 rounded-xl border p-3 sm:grid-cols-[1fr_auto_auto] sm:items-center', a.returned && 'bg-subtle')}
                     >
                       <div className="flex min-w-0 items-center gap-3">
-                        <span className={cn('flex size-9 shrink-0 items-center justify-center rounded-lg', a.returned ? 'bg-success-soft text-success' : 'bg-accent text-primary')}>
-                          <Icon className="size-4" />
-                        </span>
+                        <span aria-label={a.returned ? 'Returned' : 'Outstanding'} className={cn('size-2 shrink-0 rounded-full', a.returned ? 'bg-success' : 'bg-warning')} />
                         <div className="min-w-0">
                           <div className="text-sm font-medium">{a.name}</div>
                           <div className="truncate font-mono text-[11px] text-muted-foreground">
@@ -252,8 +245,7 @@ export function OffboardingDetail({
               {canSeeSettlement ? (
                 <Settlement record={r} emp={emp} role={role} onApprove={(approvals) => onUpdate({ ...r, settlementApprovals: approvals, stage: Math.max(r.stage, 5) })} />
               ) : (
-                <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed bg-muted/40 p-8 text-center">
-                  <Lock className="size-5 text-muted-foreground" />
+                <div className="flex flex-col items-center gap-1 rounded-xl border border-dashed bg-muted/40 p-8 text-center">
                   <div className="text-sm font-medium">Restricted to HR, Finance and the CEO</div>
                   <p className="text-xs text-muted-foreground">Final dues contain salary information.</p>
                 </div>

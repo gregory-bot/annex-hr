@@ -93,15 +93,17 @@ def create_leave(request: Request, body: Any = Body(default={}), me: AuthContext
      VALUES ($1,$2,$3,$4,$5,$6,$7,'Pending','Manager',$8,$9) RETURNING *""",
         [me.workspaceId, me.employeeId, b.type, b.start, b.end, days, b.reason, b.handoverTo, b.handoverNotes],
     )
-    # Notify the line manager.
+    # Notify the line manager — or HR when the employee has no manager (never the whole workspace).
     emp = query_one("SELECT name, manager_id FROM employees WHERE id = $1", [me.employeeId])
+    manager_id = emp["manager_id"]  # type: ignore[index]
     query(
-        "INSERT INTO notifications (workspace_id, recipient_id, type, title, body, href) VALUES ($1, $2, 'approval', $3, $4, '/app/leave')",
+        "INSERT INTO notifications (workspace_id, recipient_id, type, title, body, href, audience) VALUES ($1, $2, 'approval', $3, $4, '/app/leave', $5)",
         [
             me.workspaceId,
-            emp["manager_id"],  # type: ignore[index]
+            manager_id,
             f"{emp['name']} requested {days} day{'' if days == 1 else 's'} of {b.type.lower()} leave",  # type: ignore[index]
-            "Awaiting your approval as line manager.",
+            "Awaiting your approval as line manager." if manager_id else "Awaiting HR approval.",
+            "all" if manager_id else "admins",
         ],
     )
     audit(request, me, "leave.requested", "leave_request", row["id"], {"days": days})  # type: ignore[index]

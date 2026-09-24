@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Coffee, FingerprintPattern, Laptop, LogIn, LogOut, MapPin, Play, ShieldCheck, Smartphone } from 'lucide-react'
+import { MapPin } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -9,11 +9,7 @@ import { SHIFT } from './data'
 import { hms, type Clock } from './workday'
 
 type Method = 'Web' | 'Mobile' | 'Biometric'
-const methods: { id: Method; icon: typeof Laptop }[] = [
-  { id: 'Web', icon: Laptop },
-  { id: 'Mobile', icon: Smartphone },
-  { id: 'Biometric', icon: FingerprintPattern },
-]
+const methods: { id: Method }[] = [{ id: 'Web' }, { id: 'Mobile' }, { id: 'Biometric' }]
 
 export function ClockCard({ clock }: { clock: Clock }) {
   const { now, state, elapsed, toggle, toggleBreak, statusLabel } = clock
@@ -48,7 +44,6 @@ export function ClockCard({ clock }: { clock: Clock }) {
               {state.clockedIn && (
                 <motion.div initial={{ opacity: 0, width: 0 }} animate={{ opacity: 1, width: 'auto' }} exit={{ opacity: 0, width: 0 }} className="overflow-hidden">
                   <Button variant="outline" size="lg" onClick={toggleBreak} className="w-full">
-                    {state.onBreak ? <Play /> : <Coffee />}
                     {state.onBreak ? 'Resume' : 'Break'}
                   </Button>
                 </motion.div>
@@ -59,7 +54,6 @@ export function ClockCard({ clock }: { clock: Clock }) {
                 {!state.clockedIn && <motion.span className="absolute inset-0 rounded-xl bg-white/20" animate={{ opacity: [0, 0.5, 0] }} transition={{ duration: 2.4, repeat: Infinity }} />}
                 <AnimatePresence mode="wait" initial={false}>
                   <motion.span key={state.clockedIn ? 'out' : 'in'} initial={{ y: 12, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -12, opacity: 0 }} className="relative flex items-center gap-2">
-                    {state.clockedIn ? <LogOut className="size-4" /> : <LogIn className="size-4" />}
                     {state.clockedIn ? 'Punch out' : 'Punch in'}
                   </motion.span>
                 </AnimatePresence>
@@ -78,11 +72,11 @@ export function ClockCard({ clock }: { clock: Clock }) {
               onClick={() => setMethod(m.id)}
               disabled={state.clockedIn}
               className={cn(
-                'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors disabled:cursor-not-allowed',
+                'inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium transition-colors disabled:cursor-not-allowed',
                 method === m.id ? 'border-primary/40 bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-muted',
               )}
             >
-              <m.icon className="size-3.5" /> {m.id}
+              {m.id}
             </button>
           ))}
         </div>
@@ -115,8 +109,8 @@ export function GeoCard({ office }: { office: string }) {
             <MapPin className="size-4" />
           </motion.div>
         </div>
-        <Badge variant="success" className="absolute left-3 top-3 bg-card shadow-sm">
-          <ShieldCheck /> Location verified
+        <Badge variant="success" dot className="absolute left-3 top-3 bg-card shadow-sm">
+          Location verified
         </Badge>
       </div>
       <div className="p-4">

@@ -1,15 +1,14 @@
 import { motion } from 'framer-motion'
-import { Bot, Building, ChartColumn, Layers, UserCog, Users, LayoutDashboard, type LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-const nodes: { label: string; sub: string; icon: LucideIcon }[] = [
-  { label: 'Company', sub: 'Registered & verified', icon: Building },
-  { label: 'Workspace', sub: 'annex.annexhr.com', icon: LayoutDashboard },
-  { label: 'Departments', sub: 'Structure & budgets', icon: Layers },
-  { label: 'Managers', sub: 'Approvals & reviews', icon: UserCog },
-  { label: 'Employees', sub: 'Self-service portal', icon: Users },
-  { label: 'Automation', sub: 'Leave, payroll, alerts', icon: Bot },
-  { label: 'Reports', sub: 'Live people analytics', icon: ChartColumn },
+const nodes: { label: string; sub: string }[] = [
+  { label: 'Company', sub: 'Registered & verified' },
+  { label: 'Workspace', sub: 'annex.annexhr.com' },
+  { label: 'Departments', sub: 'Structure & budgets' },
+  { label: 'Managers', sub: 'Approvals & reviews' },
+  { label: 'Employees', sub: 'Self-service portal' },
+  { label: 'Automation', sub: 'Leave, payroll, alerts' },
+  { label: 'Reports', sub: 'Live people analytics' },
 ]
 
 function Connector({ index }: { index: number }) {
@@ -75,11 +74,11 @@ export function WorkflowFlow() {
             >
               <div
                 className={cn(
-                  'flex size-12 shrink-0 items-center justify-center rounded-2xl border shadow-sm transition-transform hover:-translate-y-0.5',
+                  'flex size-12 shrink-0 items-center justify-center rounded-full border text-sm font-semibold tabular shadow-sm transition-transform hover:-translate-y-0.5',
                   i === 5 ? 'border-transparent bg-gradient-to-br from-primary to-secondary text-white shadow-primary/30' : 'bg-card text-primary',
                 )}
               >
-                <n.icon className="size-5" />
+                {String(i + 1).padStart(2, '0')}
               </div>
               <div>
                 <div className="text-sm font-semibold">{n.label}</div>

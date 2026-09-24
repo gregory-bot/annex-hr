@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { addMonths, eachDayOfInterval, endOfMonth, endOfWeek, format, isSameMonth, isWeekend, startOfMonth, startOfWeek } from 'date-fns'
-import { ChevronLeft, ChevronRight, PartyPopper } from 'lucide-react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import type { Employee, Holiday, LeaveRequest } from '@/data/types'
 import { Button } from '@/components/ui/button'
 import { Tip } from '@/components/ui/tooltip'
@@ -86,7 +86,7 @@ export function TeamCalendar({
                   <span className={cn('flex size-6 items-center justify-center rounded-full text-xs tabular', d.iso === TODAY ? 'bg-primary font-bold text-primary-foreground' : 'text-muted-foreground')}>
                     {format(d.date, 'd')}
                   </span>
-                  {d.holidays.length > 0 && <PartyPopper className="size-3.5 text-primary" />}
+                  {d.holidays.length > 0 && <span className="size-1.5 rounded-full bg-primary" aria-hidden />}
                 </div>
                 {d.holidays.map((h) => (
                   <div key={h.name + h.country} className="mb-1 truncate text-[10px] font-medium text-accent-foreground">
@@ -124,8 +124,8 @@ export function TeamCalendar({
             </div>
             <div className="min-w-0 flex-1 space-y-1.5">
               {d.holidays.map((h) => (
-                <div key={h.name + h.country} className="flex items-center gap-1.5 text-sm font-medium">
-                  <PartyPopper className="size-3.5 text-primary" /> {h.name} <span className="text-xs text-muted-foreground">· {h.country}</span>
+                <div key={h.name + h.country} className="flex items-center gap-2 text-sm font-medium">
+                  <span className="size-1.5 shrink-0 rounded-full bg-primary" aria-hidden /> {h.name} <span className="text-xs text-muted-foreground">· {h.country}</span>
                 </div>
               ))}
               {d.off.map((r) => (

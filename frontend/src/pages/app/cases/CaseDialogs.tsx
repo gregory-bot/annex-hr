@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { Eye, Lock, ShieldAlert } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -32,9 +31,6 @@ export function RevealDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <div className="mb-1 flex size-10 items-center justify-center rounded-full bg-accent text-primary">
-            <Eye className="size-5" />
-          </div>
           <DialogTitle>Reveal subject identity</DialogTitle>
           <DialogDescription>
             {caseRef} is confidential. Your name, the time and your reason will be written to the case access log.
@@ -60,7 +56,7 @@ export function RevealDialog({
               setDetail('')
             }}
           >
-            <Eye /> Reveal &amp; log access
+            Reveal &amp; log access
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -151,8 +147,8 @@ export function LogCaseDialog({
               </label>
             </div>
             {anonymous ? (
-              <div className="flex items-center gap-2 rounded-lg border border-dashed bg-muted/40 px-3 py-2.5 text-sm text-muted-foreground">
-                <ShieldAlert className="size-4 text-primary" /> Reporter identity will not be stored.
+              <div className="rounded-lg border border-dashed bg-muted/40 px-3 py-2.5 text-sm text-muted-foreground">
+                Reporter identity will not be stored.
               </div>
             ) : (
               <SimpleSelect value={reporterId} onValueChange={setReporterId} options={options} placeholder="Select reporter" />
@@ -172,12 +168,9 @@ export function LogCaseDialog({
             <FileUploader compact label="Attach statements, screenshots or recordings" hint="PDF, images, audio · up to 25 MB" onComplete={(f) => setEvidence((prev) => [...prev, ...f])} />
           </div>
           <label className="flex items-start justify-between gap-3 rounded-lg border p-3 sm:col-span-2">
-            <span className="flex items-start gap-2.5">
-              <Lock className="mt-0.5 size-4 text-primary" />
-              <span>
-                <span className="block text-sm font-medium">Confidential case</span>
-                <span className="block text-xs text-muted-foreground">Mask the subject's name and log every view.</span>
-              </span>
+            <span>
+              <span className="block text-sm font-medium">Confidential case</span>
+              <span className="block text-xs text-muted-foreground">Mask the subject's name and log every view.</span>
             </span>
             <Switch checked={confidential} onCheckedChange={setConfidential} />
           </label>

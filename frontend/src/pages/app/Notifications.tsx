@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AnimatePresence, LayoutGroup, motion } from 'framer-motion'
 import { toast } from 'sonner'
-import { ArrowUpRight, Bell, BellOff, Check, CheckCheck, Inbox, Mail, MessageSquare, Smartphone, X } from 'lucide-react'
+import { ArrowUpRight } from 'lucide-react'
 import { useNotifications } from '@/context/notifications'
 import { notificationMeta } from '@/components/layout/notificationMeta'
 import { PageHeader } from '@/components/shared/PageHeader'
@@ -119,7 +119,7 @@ export default function Notifications() {
               toast.success('All notifications marked as read')
             }}
           >
-            <CheckCheck /> Mark all read
+            Mark all read
           </Button>
         }
       />
@@ -162,7 +162,6 @@ export default function Notifications() {
           <Card className="overflow-hidden">
             {visible.length === 0 ? (
               <EmptyState
-                icon={filter === 'unread' ? CheckCheck : Inbox}
                 title={filter === 'unread' ? 'No unread notifications' : 'Nothing here yet'}
                 description={filter === 'unread' ? 'Everything has been read. Nice work.' : 'Notifications in this category will appear here.'}
                 className="py-14"
@@ -194,7 +193,7 @@ export default function Notifications() {
                       {preview}
                     </motion.div>
                   ) : (
-                    <EmptyState icon={Bell} title="Select a notification" description="Details and quick actions appear here." className="py-14" />
+                    <EmptyState title="Select a notification" description="Details and quick actions appear here." className="py-14" />
                   )}
                 </AnimatePresence>
               </Card>
@@ -209,16 +208,13 @@ export default function Notifications() {
             <CardContent className="space-y-1">
               {(
                 [
-                  { key: 'email', label: 'Email', hint: 'Daily digest and approval requests', icon: Mail },
-                  { key: 'inapp', label: 'In-app', hint: 'Real-time bell and toast alerts', icon: Bell },
-                  { key: 'sms', label: 'SMS', hint: 'Urgent payroll and compliance alerts', icon: Smartphone },
-                  { key: 'whatsapp', label: 'WhatsApp', hint: 'Leave approvals and payslip notices', icon: MessageSquare },
+                  { key: 'email', label: 'Email', hint: 'Daily digest and approval requests' },
+                  { key: 'inapp', label: 'In-app', hint: 'Real-time bell and toast alerts' },
+                  { key: 'sms', label: 'SMS', hint: 'Urgent payroll and compliance alerts' },
+                  { key: 'whatsapp', label: 'WhatsApp', hint: 'Leave approvals and payslip notices' },
                 ] as const
               ).map((c) => (
                 <div key={c.key} className="flex items-center gap-3 rounded-lg px-1 py-2.5">
-                  <span className={cn('flex size-9 shrink-0 items-center justify-center rounded-lg', prefs[c.key] ? 'bg-accent text-primary' : 'bg-muted text-muted-foreground')}>
-                    {prefs[c.key] ? <c.icon className="size-4" /> : <BellOff className="size-4" />}
-                  </span>
                   <div className="min-w-0 flex-1">
                     <Label htmlFor={`pref-${c.key}`} className="cursor-pointer text-sm font-medium">
                       {c.label}
@@ -263,7 +259,6 @@ function NotificationRow({
   onOpen: () => void
 }) {
   const meta = notificationMeta[n.type]
-  const Icon = meta.icon
   return (
     <motion.li
       layout
@@ -280,9 +275,7 @@ function NotificationRow({
         onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), onSelect())}
         className="flex w-full cursor-pointer items-start gap-3 px-4 py-3.5 text-left transition-colors hover:bg-muted/50 focus-visible:bg-muted/60 focus-visible:outline-none"
       >
-        <span className={cn('flex size-9 shrink-0 items-center justify-center rounded-full', meta.tone)}>
-          <Icon className="size-4" />
-        </span>
+        <span className={cn('mt-1.5 size-2 shrink-0 rounded-full', meta.dot)} aria-hidden />
         <div className="min-w-0 flex-1">
           <div className="flex items-start gap-2">
             <p className={cn('min-w-0 flex-1 text-sm leading-snug', n.read ? 'text-muted-foreground' : 'font-semibold text-foreground')}>{n.title}</p>
@@ -326,7 +319,6 @@ function Preview({
   onResolve: (r: Resolution, message: string, description?: string) => void
 }) {
   const meta = notificationMeta[n.type]
-  const Icon = meta.icon
 
   const actions: Record<Notification['type'], { label: string; run: () => void }> = {
     approval: { label: 'Approve', run: () => onResolve('approved', 'Request approved', 'The requester has been notified.') },
@@ -343,14 +335,11 @@ function Preview({
 
   return (
     <div className="p-5">
-      <div className="flex items-center gap-3">
-        <span className={cn('flex size-11 shrink-0 items-center justify-center rounded-xl', meta.tone)}>
-          <Icon className="size-5" />
-        </span>
-        <div className="min-w-0">
-          <Badge variant="muted">{meta.label}</Badge>
-          <div className="mt-1 text-xs text-muted-foreground">{n.time}</div>
-        </div>
+      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+        <span className={cn('size-2 shrink-0 rounded-full', meta.dot)} aria-hidden />
+        <span className="font-medium text-foreground">{meta.label}</span>
+        <span aria-hidden>·</span>
+        <span>{n.time}</span>
       </div>
       <h2 className="mt-4 text-lg font-semibold leading-snug">{n.title}</h2>
       <p className="mt-2 text-sm text-muted-foreground">{n.body}</p>
@@ -368,25 +357,24 @@ function Preview({
 
       <div className="mt-5 flex flex-col gap-2 sm:flex-row lg:flex-col xl:flex-row">
         {resolution ? (
-          <div className={cn('flex flex-1 items-center justify-center gap-2 rounded-lg py-2 text-sm font-medium', resolution === 'declined' ? 'bg-danger-soft text-danger' : 'bg-success-soft text-success')}>
-            {resolution === 'declined' ? <X className="size-4" /> : <Check className="size-4" />}
+          <div className={cn('flex flex-1 items-center justify-center rounded-lg py-2 text-sm font-medium', resolution === 'declined' ? 'bg-danger-soft text-danger' : 'bg-success-soft text-success')}>
             {resolution === 'approved' ? 'Approved' : resolution === 'declined' ? 'Declined' : 'Done'}
           </div>
         ) : (
           <>
             <Button className="flex-1" onClick={primary.run}>
-              <Check /> {primary.label}
+              {primary.label}
             </Button>
             {canDecline && (
               <Button variant="outline" className="flex-1" onClick={() => onResolve('declined', 'Declined', 'The requester has been notified with your comment.')}>
-                <X /> Decline
+                Decline
               </Button>
             )}
           </>
         )}
       </div>
       <Button variant="ghost" className="mt-2 w-full" onClick={onOpen}>
-        Open in {meta.label} <ArrowUpRight />
+        Open in {meta.label}
       </Button>
     </div>
   )

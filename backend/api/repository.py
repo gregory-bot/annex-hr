@@ -59,7 +59,21 @@ def to_workspace(w: Row, offices: list[Row] | None = None) -> dict[str, Any]:
         "plan": w["plan"],
         "founded": w.get("founded") or _year(w.get("created_at")),
         "offices": [{"city": o["city"], "country": o["country"], "address": o["address"], "headcount": o["headcount"]} for o in offices or []],
+        "logoUrl": logo_url(w["id"], w.get("logo_version")),
+        "brandPrimary": w.get("brand_primary") or DEFAULT_BRAND_PRIMARY,
+        "brandSecondary": w.get("brand_secondary") or DEFAULT_BRAND_SECONDARY,
+        "customDomain": w.get("custom_domain"),
+        "customDomainVerified": bool(w.get("custom_domain_verified_at")),
     }
+
+
+DEFAULT_BRAND_PRIMARY = "#C1121F"
+DEFAULT_BRAND_SECONDARY = "#E63946"
+
+
+def logo_url(workspace_id: str, version: Any) -> str | None:
+    """Cache-busted logo URL (the version is the upload time as epoch seconds), or None without a logo."""
+    return f"/api/workspaces/{workspace_id}/logo?v={int(version)}" if version is not None else None
 
 
 def to_department(d: Row) -> dict[str, Any]:
@@ -296,7 +310,22 @@ TICKET_SELECT = f"""SELECT t.*,
   WHERE t.workspace_id = $1
     AND (tm.key <> ALL ('{{{",".join(PRIVATE_TICKET_TEAMS)}}}'::text[]) OR t.reporter_id = $2 OR t.assignee_id = $2 OR $3::boolean)"""
 
-WORKSPACE_SQL = """SELECT w.*, COALESCE((SELECT json_agg(o ORDER BY o.headcount DESC) FROM offices o WHERE o.workspace_id = w.id), '[]') AS offices
+#: Notifications visible to employee $2 in workspace $1; `$3` is true for HR admins/executives.
+#: Direct notifications use their own read flag; workspace-wide ones are read per person.
+NOTIFICATION_SELECT = """SELECT n.id, n.type, n.title, n.body, n.href, n.time_label, n.created_at,
+    CASE WHEN n.recipient_id IS NULL
+         THEN n.read OR EXISTS (SELECT 1 FROM notification_reads r WHERE r.notification_id = n.id AND r.employee_id = $2)
+         ELSE n.read END AS read
+  FROM notifications n
+  WHERE n.workspace_id = $1
+    AND (n.recipient_id = $2 OR (n.recipient_id IS NULL AND (n.audience = 'all' OR $3::boolean)))
+  ORDER BY n.created_at DESC"""
+
+# Explicit columns: never ship logo_data (bytea) through the bootstrap.
+WORKSPACE_SQL = """SELECT w.id, w.slug, w.name, w.industry, w.country, w.size, w.domain, w.logo_text, w.plan, w.founded, w.created_at,
+       w.brand_primary, w.brand_secondary, w.custom_domain, w.custom_domain_verified_at,
+       CASE WHEN w.logo_data IS NOT NULL THEN extract(epoch FROM w.logo_updated_at)::bigint END AS logo_version,
+       COALESCE((SELECT json_agg(o ORDER BY o.headcount DESC) FROM offices o WHERE o.workspace_id = w.id), '[]') AS offices
   FROM workspaces w WHERE w.id = $1"""
 
 
@@ -323,7 +352,7 @@ _BOOTSTRAP_SETS: dict[str, str] = {
     "timesheets": "SELECT * FROM timesheets WHERE workspace_id = $1 ORDER BY week_start DESC",
     "timesheetEntries": "SELECT e.* FROM timesheet_entries e JOIN timesheets t ON t.id = e.timesheet_id WHERE t.workspace_id = $1 ORDER BY e.position",
     "surveys": "SELECT * FROM surveys WHERE workspace_id = $1 ORDER BY position",
-    "notifications": "SELECT * FROM notifications WHERE workspace_id = $1 AND (recipient_id IS NULL OR recipient_id = $2) ORDER BY created_at DESC LIMIT 50",
+    "notifications": f"{NOTIFICATION_SELECT} LIMIT 50",
     "kpis": "SELECT * FROM kpis WHERE workspace_id = $1 ORDER BY position",
     "documents": "SELECT * FROM documents WHERE workspace_id = $1 ORDER BY folder, created_at",
     "documentVersions": "SELECT v.* FROM document_versions v JOIN documents d ON d.id = v.document_id WHERE d.workspace_id = $1 ORDER BY v.position",

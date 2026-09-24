@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { Gift, Send, Target } from 'lucide-react'
 import { toast } from 'sonner'
 import { useWorkspace } from '@/context/auth'
 import { Badge } from '@/components/ui/badge'
@@ -120,7 +119,7 @@ export function BonusTab() {
           description={`${eligible.length} of ${pool.length} employees eligible`}
           action={
             <Button size="sm" onClick={submit} disabled={stage > 0}>
-              <Send /> {stage > 0 ? 'Submitted' : 'Submit for approval'}
+              {stage > 0 ? 'Submitted' : 'Submit for approval'}
             </Button>
           }
         >
@@ -147,7 +146,7 @@ export function BonusTab() {
                   <div className="truncate text-xs text-muted-foreground">{department(x.e.departmentId)?.name}</div>
                 </div>
                 <Badge variant="outline" className="tabular">
-                  <Target /> {x.e.performance.toFixed(1)}
+                  {x.e.performance.toFixed(1)}
                 </Badge>
                 <div className="w-24 text-right text-sm font-semibold tabular">{formatKES(x.bonus, { compact: true })}</div>
               </motion.li>
@@ -169,8 +168,8 @@ export function BonusTab() {
             </BarChart>
           </ResponsiveContainer>
         ) : (
-          <div className="flex h-40 items-center justify-center gap-2 text-sm text-muted-foreground">
-            <Gift className="size-4" /> No eligible employees
+          <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
+            No eligible employees
           </div>
         )}
       </Section>

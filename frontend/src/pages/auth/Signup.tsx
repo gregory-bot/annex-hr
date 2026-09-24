@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { toast } from 'sonner'
-import { ArrowLeft, ArrowRight, Check, Globe, LoaderCircle, Mail, Layers, UserPlus, Wallet } from 'lucide-react'
+import { Check, LoaderCircle } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -91,7 +91,6 @@ function Provisioning({ form, onDone }: { form: Form; onDone: () => void }) {
 
       <div className="mt-6 overflow-hidden rounded-2xl border bg-card">
         <div className="flex items-center gap-2 border-b bg-subtle px-4 py-3">
-          <Globe className="size-4 text-primary" />
           <span className="min-w-0 truncate font-mono text-sm font-semibold">
             https://{url.slice(0, chars)}
             {chars < url.length && <span className="ml-px inline-block h-4 w-px animate-pulse bg-foreground align-middle" />}
@@ -131,7 +130,7 @@ function Provisioning({ form, onDone }: { form: Form; onDone: () => void }) {
       <Button size="lg" className="mt-6 w-full" disabled={!complete} onClick={onDone}>
         {complete ? (
           <>
-            Continue <ArrowRight />
+            Continue
           </>
         ) : (
           <>
@@ -311,7 +310,7 @@ export default function Signup() {
                 </p>
               )}
               <SubmitButton loading={loading} loadingText="Sending code…" className="mt-2">
-                Continue <ArrowRight />
+                Continue
               </SubmitButton>
             </form>
           </motion.div>
@@ -319,10 +318,7 @@ export default function Signup() {
 
         {step === 1 && phase === 'verify' && (
           <motion.div key="verify" custom={dir} variants={slideVariants} initial="enter" animate="center" exit="exit">
-            <div className="flex size-12 items-center justify-center rounded-2xl bg-accent text-primary">
-              <Mail className="size-5" />
-            </div>
-            <h1 className="mt-5 text-2xl font-bold tracking-tight sm:text-3xl">Verify your email</h1>
+            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Verify your email</h1>
             <p className="mt-2 text-sm text-muted-foreground">
               Enter the 6-digit code we sent to <span className="font-medium text-foreground">{form.email}</span>.
             </p>
@@ -346,7 +342,7 @@ export default function Signup() {
               </SubmitButton>
               <div className="flex items-center justify-between text-sm">
                 <button type="button" onClick={() => go(0)} className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground">
-                  <ArrowLeft className="size-4" /> Edit details
+                  Edit details
                 </button>
                 <button
                   type="button"
@@ -403,14 +399,12 @@ export default function Signup() {
               <div className="text-sm font-semibold">Next steps</div>
               <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
                 {[
-                  { icon: Layers, t: 'Add departments', d: 'Structure & heads' },
-                  { icon: UserPlus, t: 'Invite employees', d: 'Email or CSV import' },
-                  { icon: Wallet, t: 'Configure payroll', d: 'Pay dates & banks' },
+                  { t: 'Add departments', d: 'Structure & heads' },
+                  { t: 'Invite employees', d: 'Email or CSV import' },
+                  { t: 'Configure payroll', d: 'Pay dates & banks' },
                 ].map((n, i) => (
                   <motion.div key={n.t} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 + i * 0.08 }} className="flex items-center gap-3 rounded-xl border p-3 sm:flex-col sm:items-start">
-                    <span className="flex size-8 items-center justify-center rounded-lg bg-accent text-primary">
-                      <n.icon className="size-4" />
-                    </span>
+                    <span className="text-xs font-semibold tabular text-primary">{String(i + 1).padStart(2, '0')}</span>
                     <div>
                       <div className="text-sm font-medium">{n.t}</div>
                       <div className="text-xs text-muted-foreground">{n.d}</div>
@@ -424,7 +418,7 @@ export default function Signup() {
               {loading ? <LoaderCircle className="animate-spin" /> : null}
               {loading ? 'Opening workspace…' : (
                 <>
-                  Enter workspace <ArrowRight />
+                  Enter workspace
                 </>
               )}
             </Button>

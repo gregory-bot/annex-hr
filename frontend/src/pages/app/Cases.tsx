@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
-import { Clock, Eye, FilePlus2, FolderSearch, Gavel, Lock, Scale, ShieldAlert, Timer } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -110,7 +109,7 @@ export default function Cases() {
             setRevealId(r.id)
           }}
         >
-          <Eye className="size-3.5" /> Reveal
+          Reveal
         </Button>
       </div>
     ) : (
@@ -133,7 +132,7 @@ export default function Cases() {
           <span className="font-mono text-xs font-medium">{r.ref}</span>
           {r.confidential && (
             <Tip label="Confidential">
-              <Lock className="size-3 text-primary" />
+              <span aria-label="Confidential" className="size-1.5 shrink-0 rounded-full bg-primary" />
             </Tip>
           )}
         </div>
@@ -152,7 +151,7 @@ export default function Cases() {
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-1.5">
           <span className="font-mono text-xs font-medium">{r.ref}</span>
-          {r.confidential && <Lock className="size-3 text-primary" />}
+          {r.confidential && <span aria-label="Confidential" className="size-1.5 shrink-0 rounded-full bg-primary" />}
           <span className="text-xs text-muted-foreground">· {r.type}</span>
         </div>
         <StatusBadge status={r.status} />
@@ -175,9 +174,7 @@ export default function Cases() {
         title="Disciplinary & grievance"
         description="Confidential case management with fair-hearing workflow, evidence vault and sign-off trail."
         actions={
-          <Button onClick={() => setLogOpen(true)}>
-            <FilePlus2 /> Log case
-          </Button>
+          <Button onClick={() => setLogOpen(true)}>Log case</Button>
         }
       />
 
@@ -186,14 +183,9 @@ export default function Cases() {
         animate={{ opacity: 1, y: 0 }}
         className="flex flex-col gap-4 rounded-xl border border-primary/25 bg-accent/60 p-4 sm:flex-row sm:items-center sm:justify-between"
       >
-        <div className="flex items-start gap-3">
-          <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary text-white">
-            <Lock className="size-4" />
-          </span>
-          <div>
-            <div className="text-sm font-semibold text-foreground">Restricted — visible to the case team only. All access is logged.</div>
-            <div className="mt-0.5 text-xs text-muted-foreground">Subject names are masked on confidential cases until a reason is recorded.</div>
-          </div>
+        <div>
+          <div className="text-sm font-semibold text-foreground">Restricted — visible to the case team only. All access is logged.</div>
+          <div className="mt-0.5 text-xs text-muted-foreground">Subject names are masked on confidential cases until a reason is recorded.</div>
         </div>
         <div className="flex items-center gap-3 sm:shrink-0">
           <div className="text-right text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Confidential access control</div>
@@ -210,10 +202,10 @@ export default function Cases() {
       </motion.div>
 
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-        <StatCard label="Open cases" value={open} icon={Scale} tone="primary" index={0} hint={`${records.length} total this year`} />
-        <StatCard label="Under investigation" value={investigating} icon={FolderSearch} index={1} />
-        <StatCard label="Awaiting approval" value={awaiting} icon={Gavel} tone="warning" index={2} hint="HR Head / CEO sign-off" />
-        <StatCard label="Avg resolution" value={avgResolution} format={(n) => `${Math.round(n)} days`} icon={Timer} tone="success" index={3} hint="Target ≤ 21 days" />
+        <StatCard label="Open cases" value={open} tone="primary" index={0} hint={`${records.length} total this year`} />
+        <StatCard label="Under investigation" value={investigating} index={1} />
+        <StatCard label="Awaiting approval" value={awaiting} tone="warning" index={2} hint="HR Head / CEO sign-off" />
+        <StatCard label="Avg resolution" value={avgResolution} format={(n) => `${Math.round(n)} days`} tone="success" index={3} hint="Target ≤ 21 days" />
       </div>
 
       <div className="grid grid-cols-1 gap-3">
@@ -233,10 +225,10 @@ export default function Cases() {
             logView(r.id)
           }}
           mobileCard={mobileCard}
-          empty={<EmptyState icon={ShieldAlert} title="No cases match" description="Try a different status or type filter." />}
+          empty={<EmptyState title="No cases match" description="Try a different status or type filter." />}
         />
         <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <Clock className="size-3.5" /> Anonymous reports are shown as “Anonymous” — reporter identity is never stored.
+          Anonymous reports are shown as “Anonymous” — reporter identity is never stored.
           <Badge variant="muted" className="ml-1">
             {filtered.length} shown
           </Badge>
