@@ -38,6 +38,13 @@ export interface RegisterInput {
 
 type Result = { ok: true } | { ok: false; error: string }
 
+/** A pending sign-up waiting for its emailed 6-digit code. */
+export interface PendingRegistration {
+  verificationId: string
+  email: string
+  expiresInMinutes: number
+}
+
 interface AuthContextValue {
   status: 'loading' | 'ready'
   session: Session | null
@@ -50,7 +57,11 @@ interface AuthContextValue {
   mock: boolean
   signIn: (slug: string, email: string, password: string) => Promise<Result>
   signInAs: (workspace: string, role: Role) => Promise<Result>
-  register: (input: RegisterInput) => Promise<Result & { domain?: string }>
+  /** Step 1 of sign-up: validates the details and emails a verification code. */
+  startRegistration: (input: RegisterInput) => Promise<({ ok: true } & PendingRegistration) | { ok: false; error: string }>
+  /** Step 2: checks the code, creates the workspace and signs the admin in. */
+  verifyRegistration: (verificationId: string, code: string) => Promise<Result & { domain?: string }>
+  resendRegistrationCode: (verificationId: string) => Promise<Result>
   acceptInvite: (token: string, input: { name: string; password: string; phone?: string; birthday?: string }) => Promise<Result>
   switchWorkspace: (workspaceId: string) => Promise<void>
   switchRole: (role: Role) => Promise<void>
@@ -191,14 +202,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [run, setMock],
   )
 
-  const register = useCallback<AuthContextValue['register']>(
-    async (input) => {
+  const startRegistration = useCallback<AuthContextValue['startRegistration']>(async (input) => {
+    if (USE_MOCK_API) return { ok: true, verificationId: 'mock', email: input.email, expiresInMinutes: 15 }
+    try {
+      return { ok: true, ...(await api.post<PendingRegistration>('/auth/register/start', input)) }
+    } catch (err) {
+      return { ok: false, error: errorMessage(err) }
+    }
+  }, [])
+
+  const verifyRegistration = useCallback<AuthContextValue['verifyRegistration']>(
+    async (verificationId, code) => {
       if (USE_MOCK_API) {
         setMock({ workspaceId: 'ws-annex', role: 'company_admin', userId: personaFor('ws-annex', 'company_admin').id })
         return { ok: true, domain: 'annex.annexhr.com' }
       }
       try {
-        const payload = await api.post<SessionPayload>('/auth/register', input)
+        const payload = await api.post<SessionPayload>('/auth/register/verify', { verificationId, code })
         await adopt(payload)
         return { ok: true, domain: payload.workspace.domain }
       } catch (err) {
@@ -207,6 +227,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     },
     [adopt, setMock],
   )
+
+  const resendRegistrationCode = useCallback<AuthContextValue['resendRegistrationCode']>(async (verificationId) => {
+    if (USE_MOCK_API) return { ok: true }
+    try {
+      await api.post('/auth/register/resend', { verificationId })
+      return { ok: true }
+    } catch (err) {
+      return { ok: false, error: errorMessage(err) }
+    }
+  }, [])
 
   const acceptInvite = useCallback<AuthContextValue['acceptInvite']>(
     async (token, input) => {
@@ -279,14 +309,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       mock: USE_MOCK_API,
       signIn,
       signInAs,
-      register,
+      startRegistration,
+      verifyRegistration,
+      resendRegistrationCode,
       acceptInvite,
       switchWorkspace,
       switchRole,
       signOut,
       refresh,
     }
-  }, [status, session, remote, workspaceList, demoEnabled, signIn, signInAs, register, acceptInvite, switchWorkspace, switchRole, signOut, refresh])
+  }, [status, session, remote, workspaceList, demoEnabled, signIn, signInAs, startRegistration, verifyRegistration, resendRegistrationCode, acceptInvite, switchWorkspace, switchRole, signOut, refresh])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

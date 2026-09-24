@@ -9,7 +9,8 @@ Hire, pay and manage your team in one place — from first day to final pay.
 
 ![React](https://img.shields.io/badge/React-19-C1121F?logo=react&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-C1121F?logo=typescript&logoColor=white)
-![Node](https://img.shields.io/badge/Node-22%2B-C1121F?logo=nodedotjs&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3.11%2B-C1121F?logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.115%2B-C1121F?logo=fastapi&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-14%2B-C1121F?logo=postgresql&logoColor=white)
 ![License](https://img.shields.io/badge/license-proprietary-111827)
 
@@ -76,22 +77,24 @@ flowchart LR
   subgraph Browser
     UI["React SPA<br/>(frontend/)"]
   end
-  subgraph API["Express API (backend/)"]
-    MW["helmet · CORS · JSON<br/>JWT cookie auth · role guards"]
-    R["Route modules<br/>auth · workspace · people · leave<br/>payroll · timesheets · governance · engagement"]
-    RP["Repository layer<br/>row → domain mappers"]
+  subgraph API["FastAPI (backend/)"]
+    MW["security headers · CORS<br/>JWT cookie auth · role guards"]
+    R["Routers<br/>auth · workspace · people · leave · payroll<br/>timesheets · governance · engagement · tickets"]
+    RP["Repository layer<br/>row → API mappers"]
+    EM["Email service<br/>Brevo · SMTP · Resend"]
   end
   DB[("PostgreSQL<br/>schema: annex-hr")]
   SH["shared/<br/>types + demo data"]
 
   UI -- "/api (same origin via Vite proxy)" --> MW --> R --> RP --> DB
+  R --> EM
   SH -. types .- UI
-  SH -. types + seed .- API
+  SH -. "demo-data.json" .- API
 ```
 
 **Design principles**
 
-- **One source of truth for types.** `shared/` defines every domain type (`Employee`, `LeaveRequest`, `PayrollRun`, …). Both apps import them, so the API and UI can't drift apart.
+- **One contract.** `shared/src/types.ts` defines every domain type (`Employee`, `LeaveRequest`, `PayrollRun`, …). The frontend imports them, and the Python mappers in `backend/api/repository.py` return exactly those shapes.
 - **The server enforces access.** The UI hides what a role can't use, and the API independently checks roles, scopes every query to the caller's workspace, and redacts sensitive fields.
 - **Few database round trips.** The whole workspace loads in a single SQL statement (collections aggregated with `json_agg`), which matters on managed plans with small connection limits.
 - **Plain SQL.** Migrations are hand-written SQL files. There's no ORM to learn, and the schema is readable at a glance.
@@ -124,29 +127,29 @@ annex-hr/
 │           ├── auth/         # login, signup wizard, forgot password, accept invite
 │           └── app/          # one page (plus helper folder) per HR module
 │
-├── backend/                  # Express 5 · TypeScript · pg · zod
-│   ├── tsup.config.ts        # production bundle → dist/
-│   └── src/
-│       ├── server.ts         # entry point
-│       ├── app.ts            # middleware + router mounting
-│       ├── config/env.ts     # validated environment
-│       ├── db/
-│       │   ├── pool.ts       # connection pool (search_path pinned to DB_SCHEMA)
-│       │   ├── sql.ts        # insertMany, safe identifiers, update builder
-│       │   ├── migrate.ts    # migration runner (+ --reset)
-│       │   ├── seed.ts       # demo data loader (+ --force)
-│       │   └── migrations/   # 001_initial_schema.sql, …
-│       ├── middleware/auth.ts
-│       ├── lib/              # http errors, roles, audit log
-│       └── modules/
-│           ├── auth/         # register, login, demo, invitations
-│           ├── workspace/    # lookup, bootstrap, repository + mappers
-│           └── hr/           # people, leave, payroll, timesheets, governance, engagement
+├── backend/                  # Python · FastAPI · psycopg 3 · pydantic
+│   ├── requirements.txt
+│   ├── api/
+│   │   ├── main.py           # app, middleware, router mounting  (uvicorn api.main:app)
+│   │   ├── config.py         # validated settings from the root .env
+│   │   ├── db.py             # connection pool (search_path pinned to DB_SCHEMA), query helpers
+│   │   ├── security.py       # JWT cookie sessions, role guards, passwords, rate limits
+│   │   ├── repository.py     # row → API mappers, single-query workspace bootstrap
+│   │   ├── errors.py · roles.py · audit.py · payroll_calc.py
+│   │   ├── email/            # provider fallback (Brevo → SMTP → Resend) + branded templates
+│   │   └── routers/          # auth, workspace, people, leave, payroll, timesheets,
+│   │                         # governance, engagement, tickets
+│   └── db/
+│       ├── migrations/       # 001_initial_schema.sql, 002_tickets.sql, 003_email_flows.sql
+│       ├── migrate.py        # python -m db.migrate [--reset]
+│       ├── seed.py           # python -m db.seed [--force]
+│       └── demo-data.json    # generated from shared/src/seed.ts
 │
 └── shared/                   # @annex/shared
     └── src/
         ├── types.ts          # domain model
         └── seed.ts           # deterministic demo workspaces
+    └── scripts/export-demo-data.ts   # writes backend/db/demo-data.json
 ```
 
 ## Getting started
@@ -155,20 +158,22 @@ annex-hr/
 
 | Tool | Version |
 | --- | --- |
-| Node.js | 22 LTS or newer |
+| Node.js | 22 LTS or newer (frontend) |
+| Python | 3.11 or newer (backend) |
 | npm | 10 or newer |
 | PostgreSQL | 14 or newer (local, or a managed service such as Aiven) |
 
 ### Setup
 
 ```bash
-# 1. Install all workspaces (frontend, backend, shared)
+# 1. Install the frontend and the Python backend
 npm install
+npm run setup:backend        # creates backend/.venv and installs requirements.txt
 
 # 2. Configure
 cp .env.example .env
 #    → fill in DB_* values and generate a JWT secret:
-node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"
+python3 -c "import secrets; print(secrets.token_urlsafe(48))"
 
 # 3. Create the schema once (Annex HR never creates or drops schemas itself)
 #    psql: CREATE SCHEMA "annex-hr";
@@ -177,15 +182,24 @@ node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"
 npm run db:migrate
 npm run db:seed
 
-# 5. Run everything
+# 5. Run everything (API + web app)
 npm run dev
+```
+
+Or run the API on its own from `backend/`:
+
+```bash
+cd backend
+source .venv/bin/activate
+uvicorn api.main:app --reload --port 8000
 ```
 
 | Service | URL |
 | --- | --- |
 | Web app | http://localhost:5173 |
-| API | http://localhost:4000/api (proxied from the web app at `/api`) |
-| Health check | http://localhost:4000/api/health |
+| API | http://localhost:8000/api (proxied from the web app at `/api`) |
+| Health check | http://localhost:8000/api/health |
+| Interactive API docs | http://localhost:8000/api/docs |
 
 > **No database yet?** Set `VITE_USE_MOCK_API=true` and run `npm run dev:frontend`. The UI then runs entirely on in-browser demo data.
 
@@ -202,7 +216,8 @@ All configuration lives in a single `.env` at the repository root, shared by bot
 | `DB_SSL` | `false` | Use TLS (required for Aiven) |
 | `DB_SSL_CA_PATH` | *(empty)* | Path to the provider's CA certificate. When set, the server certificate is verified |
 | `DB_POOL_MAX` | `4` | Maximum pooled connections for the API |
-| `API_PORT` | `4000` | API port |
+| `API_PORT` | `8000` | API port (the Vite proxy forwards `/api` here) |
+| `APP_URL` | `http://localhost:5173` | Public web-app URL used in email links |
 | `CORS_ORIGINS` | `http://localhost:5173` | Comma-separated list of allowed origins |
 | `JWT_SECRET` | — | At least 32 random characters |
 | `JWT_EXPIRES_IN` | `7d` | Session lifetime |
@@ -210,6 +225,10 @@ All configuration lives in a single `.env` at the repository root, shared by bot
 | `COOKIE_SECURE` | `false` | Secure-only cookie (always on in production) |
 | `ENABLE_DEMO_LOGIN` | `false` | One-click demo roles and the "View as" switcher. **Disable in production.** |
 | `SEED_DEFAULT_PASSWORD` | — | Password given to every seeded demo user |
+| `EMAIL_PROVIDER` | `auto` | `auto` (Resend → Brevo → SMTP) or an ordered list such as `brevo,smtp`. With nothing configured, emails are printed to the API console |
+| `EMAIL_FROM_NAME` · `EMAIL_FROM_ADDRESS` | `Annex HR` · — | Sender. The address must be verified with the provider (Resend needs a verified domain) |
+| `BREVO_API_KEY` · `RESEND_API_KEY` | — | Transactional email API keys |
+| `SMTP_HOST` · `SMTP_PORT` · `SMTP_USER` · `SMTP_PASSWORD` | `smtp.gmail.com` · `587` | SMTP fallback (Gmail needs an App Password) |
 | `VITE_API_URL` | `/api` | API base URL used by the browser |
 | `VITE_APP_DOMAIN` | `annexhr.com` | Domain used for workspace URLs |
 | `VITE_USE_MOCK_API` | `false` | Run the frontend without a backend |
@@ -244,7 +263,7 @@ Conventions:
 
 ### Migrations
 
-SQL files in `backend/src/db/migrations/` run in filename order inside a transaction and are recorded in `schema_migrations`. To change the schema, add a new file (for example `002_add_contracts.sql`). Never edit a migration that has already been applied.
+SQL files in `backend/db/migrations/` run in filename order inside a transaction and are recorded in `schema_migrations`. To change the schema, add a new file (for example `002_add_contracts.sql`). Never edit a migration that has already been applied.
 
 ```bash
 npm run db:migrate      # apply pending migrations
@@ -253,7 +272,7 @@ npm run db:reset        # drop all tables in DB_SCHEMA, migrate, seed (refused w
 
 ### Seed data
 
-`npm run db:seed` loads three demo workspaces from `shared/src/seed.ts`. The data is generated from a fixed seed, so it's identical on every run. Workspaces that already exist are skipped. `npm run db:seed:force` deletes and recreates them.
+`npm run db:seed` loads three demo workspaces from `backend/db/demo-data.json`, which is generated from `shared/src/seed.ts` (`npm run export:demo-data` after changing the seed). The data is generated from a fixed seed, so it's identical on every run. Workspaces that already exist are skipped. `npm run db:seed:force` deletes and recreates them.
 
 ## Authentication, tenancy and roles
 
@@ -288,7 +307,7 @@ npm run db:reset        # drop all tables in DB_SCHEMA, migrate, seed (refused w
 | Cases | ✓ | | | | | ✓ |
 | Settings | ✓ | | | | | |
 
-Navigation is defined in `frontend/src/lib/rbac.ts`. The API enforces the same rules through `requireRole(...)` in `backend/src/lib/roles.ts`.
+Navigation is defined in `frontend/src/lib/rbac.ts`. The API enforces the same rules through `require_role(...)` (`backend/api/security.py`) and the role groups in `backend/api/roles.py`.
 
 ### Business rules enforced by the API
 
@@ -309,10 +328,12 @@ Base path `/api`. JSON in and out. Errors return `{ "error": string, "details"?:
 | Area | Method & path | Notes |
 | --- | --- | --- |
 | **Health** | `GET /health` | Includes a database round-trip |
-| **Auth** | `POST /auth/register` | Create a company workspace and its admin |
+| **Auth** | `POST /auth/register/start` | Validate company details and email a 6-digit verification code |
+| | `POST /auth/register/verify` · `POST /auth/register/resend` | Verify the code (5 attempts, 15 min) and create the workspace + admin; resend after 45 s |
 | | `POST /auth/login` | `{ workspace, email, password }` |
 | | `POST /auth/logout` · `GET /auth/me` · `GET /auth/config` | |
-| | `POST /auth/forgot-password` | Always succeeds, so it can't reveal which accounts exist |
+| | `POST /auth/forgot-password` | Emails a single-use reset link (30 min). Always succeeds, so it can't reveal which accounts exist |
+| | `POST /auth/reset-password` | `{ token, password }` |
 | | `POST /auth/demo` · `/auth/switch-role` · `/auth/switch-workspace` | Only when `ENABLE_DEMO_LOGIN=true` |
 | **Workspaces** | `GET /workspaces/lookup/:slug` | Public, used by the login form |
 | | `GET /workspaces` · `GET /workspaces/current/bootstrap` | Bootstrap returns the full, role-redacted workspace |
@@ -343,9 +364,9 @@ Example:
 ```bash
 curl -c jar.txt -H 'Content-Type: application/json' \
   -d '{"workspace":"annex","email":"faith.njeri@annex-technologies.com","password":"<SEED_DEFAULT_PASSWORD>"}' \
-  http://localhost:4000/api/auth/login
+  http://localhost:8000/api/auth/login
 
-curl -b jar.txt http://localhost:4000/api/workspaces/current/bootstrap
+curl -b jar.txt http://localhost:8000/api/workspaces/current/bootstrap
 ```
 
 ## Frontend
@@ -401,11 +422,13 @@ Run from the repository root.
 
 | Script | Description |
 | --- | --- |
-| `npm run dev` | API (watch mode) and web app together |
+| `npm run dev` | API (uvicorn `--reload`) and web app together |
 | `npm run dev:backend` · `npm run dev:frontend` | Run one side only |
-| `npm run build` | Production builds: `backend/dist` and `frontend/dist` |
-| `npm run typecheck` | Type-check backend and frontend |
-| `npm start` | Start the built API |
+| `npm run setup:backend` | Create `backend/.venv` and install Python dependencies |
+| `npm run build` | Production build of the web app (`frontend/dist`) |
+| `npm run export:demo-data` | Regenerate `backend/db/demo-data.json` from `shared/src/seed.ts` |
+| `npm run typecheck` | Type-check the frontend and import-check the API |
+| `npm start` | Start the API with uvicorn on port 8000 |
 | `npm run db:migrate` | Apply pending migrations |
 | `npm run db:seed` | Seed demo workspaces (skips existing ones) |
 | `npm run db:seed:force` | Recreate demo workspaces |
@@ -414,7 +437,7 @@ Run from the repository root.
 ## Deployment
 
 1. **Build:** `npm ci && npm run build`.
-2. **API:** run `node backend/dist/server.js` (or `npm start`) behind a reverse proxy with TLS. Migrations ship with the build, so run `node backend/dist/db/migrate.js` on each release.
+2. **API:** in `backend/`, install `requirements.txt` into a virtualenv and run `uvicorn api.main:app --host 0.0.0.0 --port 8000 --workers 2` (or behind gunicorn with uvicorn workers) behind a reverse proxy with TLS. Run `python -m db.migrate` on each release.
 3. **Web app:** serve `frontend/dist/` as static files. Route `/api/*` to the API, and send every other path to `index.html` (single-page app fallback).
 4. **Environment:** set `NODE_ENV=production`, a fresh `JWT_SECRET`, `ENABLE_DEMO_LOGIN=false`, `COOKIE_SECURE=true`, `CORS_ORIGINS` set to your web origin, and `DB_SSL_CA_PATH` pointing at your provider's CA certificate.
 5. **Workspace subdomains:** point `*.annexhr.com` at the web app. The workspace slug in the URL matches `workspaces.slug`.
@@ -422,8 +445,9 @@ Run from the repository root.
 ## Security
 
 - Secrets live only in `.env`, which git ignores. `.env.example` holds placeholders.
-- `helmet` security headers, strict CORS and 1 MB request limits.
-- Request bodies and queries are validated with zod, and updates only touch whitelisted columns.
+- Security headers (nosniff, frame denial, referrer policy, HSTS in production) and strict CORS.
+- Request bodies and queries are validated with pydantic, and updates only touch whitelisted columns.
+- Verification codes and reset tokens are stored only as hashes; pending sign-ups store a bcrypt hash, never the password.
 - All SQL is parameterised. Dynamic identifiers pass through a strict whitelist (`db/sql.ts`).
 - Row access is always scoped by `workspace_id`, and one tenant's IDs return 404 to another tenant.
 - Sensitive fields are redacted on the server, and confidential case access is logged.
@@ -440,7 +464,9 @@ To report a vulnerability, contact the Annex Technologies engineering team priva
 | `Schema "annex-hr" does not exist` | Create it once: `CREATE SCHEMA "annex-hr";` |
 | Web app loads but every request fails | The API isn't running. Use `npm run dev` from the root, not only the frontend. |
 | `Invalid environment configuration` on start | The listed variables are missing or invalid. Compare your file with `.env.example`. |
-| Port 5173 or 4000 already in use | Stop the other process, or change `API_PORT` / the Vite port. |
+| Port 5173 or 8000 already in use | Stop the other process, or change `API_PORT` / the Vite port. |
+| `uvicorn: command not found` | Activate the backend venv (`source backend/.venv/bin/activate`) or use `npm run dev:backend`. Run `npm run setup:backend` once first. |
+| Verification emails don't arrive | Check the API log for the provider error. Resend requires a verified sending domain; Brevo requires a verified sender; Gmail requires an App Password. With no provider configured, codes are printed to the API console. |
 
 ## Roadmap
 
@@ -449,7 +475,7 @@ To report a vulnerability, contact the Annex Technologies engineering team priva
 | ✅ | Multi-tenant workspaces, auth, invitations, RBAC |
 | ✅ | All HR modules in the UI. Leave, payroll approval, notifications and auth are wired to the API. |
 | 🔜 | Save the remaining screens through their existing endpoints (surveys builder, case notes, offboarding checklist, onboarding tasks, timesheets editor) |
-| 🔜 | Email delivery for invitations, verification codes and password resets |
+| ✅ | Email delivery for sign-up verification codes, invitations and password resets |
 | 🔜 | Object storage for uploads (the `storage_key` columns are already in place) |
 | 🔜 | Odoo payroll journal sync, KRA iTax exports, M-Pesa B2C payouts |
 | 🔜 | Automated test suite (API integration tests and Playwright UI tests) |
@@ -459,7 +485,7 @@ To report a vulnerability, contact the Annex Technologies engineering team priva
 - Branch from `main`, keep changes focused, and describe the *why* in the pull request.
 - Run `npm run typecheck` and `npm run build` before pushing.
 - Domain types go in `shared/src/types.ts`. Schema changes go in a **new** migration file.
-- Follow the existing patterns: zod-validated routes, workspace-scoped queries, shared UI components and design tokens (no hard-coded colours).
+- Follow the existing patterns: pydantic-validated routes, workspace-scoped queries, shared UI components and design tokens (no hard-coded colours).
 
 ---
 

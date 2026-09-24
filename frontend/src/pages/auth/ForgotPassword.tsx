@@ -24,14 +24,23 @@ export default function ForgotPassword() {
   const emailOk = /^\S+@\S+\.\S+$/.test(email)
   const emailError = touched && !emailOk ? 'Enter a valid work email' : undefined
 
+  const request = () => (USE_MOCK_API ? new Promise((r) => setTimeout(r, 800)) : api.post('/auth/forgot-password', { workspace: slug, email }))
+
   const submit = (e: React.FormEvent) => {
     e.preventDefault()
     setTouched(true)
     if (!ws || !emailOk) return
     setLoading(true)
-    const request = USE_MOCK_API ? new Promise((r) => setTimeout(r, 800)) : api.post('/auth/forgot-password', { workspace: slug, email })
-    request
+    request()
       .then(() => setSent(true))
+      .catch((err: Error) => toast.error(err.message))
+      .finally(() => setLoading(false))
+  }
+
+  const resend = () => {
+    setLoading(true)
+    request()
+      .then(() => toast.success('Reset link sent again', { description: email }))
       .catch((err: Error) => toast.error(err.message))
       .finally(() => setLoading(false))
   }
@@ -78,7 +87,7 @@ export default function ForgotPassword() {
               If <span className="font-medium text-foreground">{email}</span> belongs to {ws?.name ?? 'your workspace'}, a reset link is on its way. It expires in 30 minutes.
             </p>
             <div className="mt-8 grid grid-cols-1 gap-2 sm:grid-cols-2">
-              <Button variant="outline" size="lg" onClick={() => toast.success('Reset link sent again', { description: email })}>
+              <Button variant="outline" size="lg" onClick={resend} disabled={loading}>
                 Resend email
               </Button>
               <Button asChild size="lg">

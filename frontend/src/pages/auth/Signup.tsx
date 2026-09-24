@@ -151,7 +151,7 @@ const setupSteps: FlowStep[] = [
 ]
 
 export default function Signup() {
-  const { register } = useAuth()
+  const { startRegistration, verifyRegistration, resendRegistrationCode, mock } = useAuth()
   const [domain, setDomain] = useState<string | null>(null)
   const navigate = useNavigate()
   const [step, setStep] = useState(0)
@@ -161,7 +161,18 @@ export default function Signup() {
   const [touched, setTouched] = useState(false)
   const [loading, setLoading] = useState(false)
   const [code, setCode] = useState('')
-  const [codeError, setCodeError] = useState(false)
+  const [codeError, setCodeError] = useState<string | null>(null)
+  const [formError, setFormError] = useState<string | null>(null)
+  const [verificationId, setVerificationId] = useState<string | null>(null)
+  const [resendIn, setResendIn] = useState(0)
+  const [resending, setResending] = useState(false)
+
+  // Resend cooldown countdown (the API refuses resends within 45 s).
+  useEffect(() => {
+    if (resendIn <= 0) return
+    const t = setTimeout(() => setResendIn((s) => s - 1), 1000)
+    return () => clearTimeout(t)
+  }, [resendIn])
 
   const errors = touched ? validate(form) : {}
   const set = <K extends keyof Form>(k: K, v: Form[K]) => setForm((f) => ({ ...f, [k]: v }))
@@ -174,34 +185,60 @@ export default function Signup() {
   const submitDetails = (e: React.FormEvent) => {
     e.preventDefault()
     setTouched(true)
+    setFormError(null)
     if (Object.keys(validate(form)).length) return
     setLoading(true)
-    setTimeout(() => {
+    void startRegistration({ companyName: form.company.trim(), industry: form.industry, country: form.country, size: form.size, email: form.email.trim(), password: form.password }).then((res) => {
       setLoading(false)
+      if (!res.ok) {
+        setFormError(res.error)
+        toast.error('Could not start sign-up', { description: res.error })
+        return
+      }
+      setVerificationId(res.verificationId)
+      setCode('')
+      setCodeError(null)
+      setResendIn(45)
       setPhase('verify')
       go(1)
-      toast.success('Verification code sent', { description: form.email })
-    }, 800)
+      toast.success('Verification code sent', { description: res.email })
+    })
   }
 
   const submitCode = (e: React.FormEvent) => {
     e.preventDefault()
     if (code.length < 6) {
-      setCodeError(true)
+      setCodeError('Enter all 6 digits of your code')
       return
     }
+    if (!verificationId) return go(0)
     setLoading(true)
-    // TODO: verify the emailed code server-side once an email provider is configured.
-    void register({ companyName: form.company.trim(), industry: form.industry, country: form.country, size: form.size, email: form.email.trim(), password: form.password }).then((res) => {
+    void verifyRegistration(verificationId, code).then((res) => {
       setLoading(false)
       if (!res.ok) {
-        toast.error('Could not create workspace', { description: res.error })
-        go(0)
+        setCodeError(res.error)
+        setCode('')
         return
       }
       setDomain(res.domain ?? null)
       setDir(1)
       setPhase('provision')
+    })
+  }
+
+  const resend = () => {
+    if (!verificationId || resendIn > 0 || resending) return
+    setResending(true)
+    void resendRegistrationCode(verificationId).then((res) => {
+      setResending(false)
+      if (!res.ok) {
+        toast.error('Could not resend the code', { description: res.error })
+        return
+      }
+      setCode('')
+      setCodeError(null)
+      setResendIn(45)
+      toast.success('New code sent', { description: form.email })
     })
   }
 
@@ -268,7 +305,12 @@ export default function Signup() {
                 <PasswordInput id="su-password" value={form.password} onChange={(v) => set('password', v)} autoComplete="new-password" invalid={!!errors.password} />
               </Field>
               <StrengthMeter password={form.password} />
-              <SubmitButton loading={loading} loadingText="Creating account…" className="mt-2">
+              {formError && (
+                <p role="alert" className="rounded-lg border border-danger/30 bg-danger/5 px-3 py-2 text-sm font-medium text-danger">
+                  {formError}
+                </p>
+              )}
+              <SubmitButton loading={loading} loadingText="Sending code…" className="mt-2">
                 Continue <ArrowRight />
               </SubmitButton>
             </form>
@@ -289,16 +331,16 @@ export default function Signup() {
                 value={code}
                 onChange={(v) => {
                   setCode(v)
-                  setCodeError(false)
+                  setCodeError(null)
                 }}
-                invalid={codeError}
+                invalid={!!codeError}
               />
               {codeError && (
                 <p role="alert" className="text-xs font-medium text-danger">
-                  Enter all 6 digits of your code
+                  {codeError}
                 </p>
               )}
-              <p className="text-xs text-muted-foreground">Demo: any 6 digits will work.</p>
+              {mock && <p className="text-xs text-muted-foreground">Demo: any 6 digits will work.</p>}
               <SubmitButton loading={loading} loadingText="Verifying…">
                 Verify email
               </SubmitButton>
@@ -306,8 +348,13 @@ export default function Signup() {
                 <button type="button" onClick={() => go(0)} className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground">
                   <ArrowLeft className="size-4" /> Edit details
                 </button>
-                <button type="button" onClick={() => toast.success('New code sent', { description: form.email })} className="font-medium text-primary hover:underline">
-                  Resend code
+                <button
+                  type="button"
+                  onClick={resend}
+                  disabled={resendIn > 0 || resending}
+                  className="font-medium text-primary hover:underline disabled:cursor-not-allowed disabled:text-muted-foreground disabled:no-underline"
+                >
+                  {resending ? 'Sending…' : resendIn > 0 ? `Resend code in ${resendIn}s` : 'Resend code'}
                 </button>
               </div>
             </form>

@@ -10,6 +10,7 @@ const Landing = lazy(() => import('@/pages/landing/Landing'))
 const Login = lazy(() => import('@/pages/auth/Login'))
 const Signup = lazy(() => import('@/pages/auth/Signup'))
 const ForgotPassword = lazy(() => import('@/pages/auth/ForgotPassword'))
+const ResetPassword = lazy(() => import('@/pages/auth/ResetPassword'))
 const AcceptInvite = lazy(() => import('@/pages/auth/AcceptInvite'))
 
 const Dashboard = lazy(() => import('@/pages/app/Dashboard'))
@@ -72,6 +73,7 @@ export default function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/invite/:token" element={<AcceptInvite />} />
         <Route
           path="/app"
