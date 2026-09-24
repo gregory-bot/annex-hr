@@ -3,6 +3,7 @@ import { motion } from 'framer-motion'
 import { Check } from 'lucide-react'
 import { toast } from 'sonner'
 import { useWorkspace } from '@/context/auth'
+import { api, errorMessage, USE_MOCK_API } from '@/lib/api'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -11,86 +12,115 @@ import { EmptyState } from '@/components/shared/EmptyState'
 import { PersonCell } from '@/components/shared/PersonCell'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { cn, formatDate, formatKES } from '@/lib/utils'
+import { canSign, nextStep, useRemote, type ChainStep, type FinalDues } from './api'
 
-const ASSET_VALUES: Record<string, number> = { Laptop: 85_000, 'Access card': 1_500, 'SIM card': 500 }
-const CHAIN = ['HR', 'Finance', 'CEO'] as const
+const CHAIN = ['Finance', 'HR', 'CEO'] as const
 
 export function FinalDuesTab() {
-  const { offboardings, employee } = useWorkspace()
+  const { offboardings, employee, role, user } = useWorkspace()
+  const remote = useRemote<FinalDues[]>('/payroll/final-dues')
+  const [busy, setBusy] = useState<string | null>(null)
 
-  const items = useMemo(
+  // Mock mode: final dues straight from the offboarding record.
+  const mockItems = useMemo<FinalDues[]>(
     () =>
-      offboardings.map((o, i) => {
-        const e = employee(o.employeeId)!
-        const daily = e.salaryKES / 30
-        const unpaidDays = Number(o.lastDay.slice(8, 10))
-        const leaveDays = 3 + ((i * 5 + unpaidDays) % 10)
-        const noticeDays = o.reason === 'Contract End' || o.reason === 'Retirement' ? 0 : i % 2 ? 15 : 0
-        const lost = o.assets.filter((a) => !a.returned && ASSET_VALUES[a.name])
-        const deductions = lost.reduce((s, a) => s + ASSET_VALUES[a.name]!, 0)
-        const unpaid = Math.round(daily * unpaidDays)
-        const leave = Math.round((e.salaryKES / 22) * leaveDays)
-        const notice = Math.round(daily * noticeDays)
-        return { o, e, unpaidDays, unpaid, leaveDays, leave, noticeDays, notice, lost, deductions, total: unpaid + leave + notice - deductions }
+      offboardings.map((o) => {
+        const e = employee(o.employeeId)
+        return {
+          offboardingId: o.id,
+          employeeId: o.employeeId,
+          name: e?.name ?? 'Former employee',
+          title: e?.title ?? '',
+          employeeNo: e?.employeeNo ?? '',
+          reason: o.reason,
+          lastDay: o.lastDay,
+          noticeDays: o.noticeDays,
+          source: 'offboarding',
+          lines: [{ label: 'Final dues per offboarding record', amount: o.finalDuesKES }],
+          total: o.finalDuesKES,
+          assetsOutstanding: o.assets.filter((a) => !a.returned).map((a) => a.name),
+          approvals: CHAIN.map((c, i) => ({ step: i, role: c, name: c, status: 'Pending', at: null })),
+          status: 'Pending',
+        }
       }),
     [offboardings, employee],
   )
+  const [mock, setMock] = useState<FinalDues[] | null>(null)
+  const items = USE_MOCK_API ? mock ?? mockItems : remote.data ?? []
 
-  const [stage, setStage] = useState<Record<string, number>>(() => Object.fromEntries(offboardings.map((o, i) => [o.id, i === 0 ? 1 : 0])))
-
+  if (!USE_MOCK_API && remote.loading && !remote.data) return <p className="py-8 text-center text-sm text-muted-foreground">Loading final dues…</p>
+  if (!USE_MOCK_API && remote.error) return <EmptyState title="Final dues unavailable" description={remote.error} />
   if (!items.length) return <EmptyState title="No final dues" description="Final dues appear here when an offboarding is started." />
 
-  const approve = (id: string, name: string) => {
-    const next = (stage[id] ?? 0) + 1
-    setStage((s) => ({ ...s, [id]: next }))
-    toast.success(next >= CHAIN.length ? `Final dues approved for ${name}` : `${CHAIN[next - 1]} approved`, {
-      description: next >= CHAIN.length ? 'Queued for the next bank run and posted to Odoo.' : `Routed to ${CHAIN[next]} for sign-off.`,
-    })
+  const approve = async (it: FinalDues) => {
+    const step = nextStep(it.approvals)!
+    setBusy(it.offboardingId)
+    try {
+      let saved: FinalDues
+      if (USE_MOCK_API) {
+        const approvals: ChainStep[] = it.approvals.map((a) => (a.step === step.step ? { ...a, status: 'Approved', name: user.name, at: '2026-09-23' } : a))
+        saved = { ...it, approvals, status: approvals.every((a) => a.status === 'Approved') ? 'Approved' : 'Pending' }
+        setMock((m) => (m ?? mockItems).map((x) => (x.offboardingId === it.offboardingId ? saved : x)))
+      } else {
+        saved = await api.post<FinalDues>(`/payroll/final-dues/${it.offboardingId}/approve`)
+        remote.setData((d) => (d ?? []).map((x) => (x.offboardingId === it.offboardingId ? saved : x)))
+      }
+      const next = nextStep(saved.approvals)
+      toast.success(saved.status === 'Approved' ? `Final dues approved for ${it.name}` : `${step.role} approved`, {
+        description: saved.status === 'Approved' ? 'Queued for the next bank run.' : `Routed to ${next?.role} for sign-off.`,
+      })
+    } catch (err) {
+      toast.error('Approval not recorded', { description: errorMessage(err) })
+    } finally {
+      setBusy(null)
+    }
   }
 
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
       {items.map((it, idx) => {
-        const s = stage[it.o.id] ?? 0
-        const complete = s >= CHAIN.length
+        const step = nextStep(it.approvals)
+        const complete = it.status === 'Approved'
         return (
-          <motion.div key={it.o.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.05 }} whileHover={{ y: -2 }}>
+          <motion.div key={it.offboardingId} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.05 }}>
             <Card className="flex h-full flex-col p-5">
               <div className="flex items-start justify-between gap-3">
-                <PersonCell name={it.e.name} sub={`${it.o.reason} · last day ${formatDate(it.o.lastDay)}`} />
+                <PersonCell name={it.name} sub={`${it.reason} · last day ${formatDate(it.lastDay)}`} />
                 <StatusBadge status={complete ? 'Approved' : 'Pending'} />
               </div>
               <div className="mt-4 grid grid-cols-1 gap-1.5 text-sm">
-                <Row label={`Unpaid salary · ${it.unpaidDays} days`} value={it.unpaid} />
-                <Row label={`Leave encashment · ${it.leaveDays} days`} value={it.leave} />
-                <Row label={it.noticeDays ? `Notice pay in lieu · ${it.noticeDays} days` : 'Notice pay · served in full'} value={it.notice} />
-                <Row
-                  label={it.lost.length ? `Assets not returned: ${it.lost.map((a) => a.name).join(', ')}` : 'All company assets returned'}
-                  value={-it.deductions}
-                />
+                {it.lines.map((l) => (
+                  <Row key={l.label} label={l.label} value={l.amount} />
+                ))}
+                {it.assetsOutstanding.length > 0 && <p className="text-[11px] text-muted-foreground">Assets not yet returned: {it.assetsOutstanding.join(', ')}</p>}
                 <Separator className="my-1.5" />
                 <div className="flex items-center justify-between font-semibold">
-                  <span>Total final dues</span>
-                  <span className="tabular text-primary">{formatKES(it.total)}</span>
+                  <span>{it.source === 'settlement' ? 'Net final dues' : 'Total final dues'}</span>
+                  <span className={cn('tabular', it.total < 0 ? 'text-danger' : 'text-primary')}>
+                    {it.total < 0 ? '−' : ''}
+                    {formatKES(Math.abs(it.total))}
+                  </span>
                 </div>
-                <p className="text-[11px] text-muted-foreground">Gross, before PAYE and statutory deductions on the final payslip.</p>
+                <p className="text-[11px] text-muted-foreground">
+                  {it.source === 'settlement' ? 'From the offboarding settlement, after PAYE and statutory deductions.' : 'Gross, before PAYE and statutory deductions on the final payslip. Settlement not yet prepared.'}
+                </p>
               </div>
               <div className="mt-auto pt-4">
                 <div className="flex items-center gap-1.5">
-                  {CHAIN.map((c, i) => (
-                    <div key={c} className="flex flex-1 items-center gap-1.5">
-                      <span
-                        className={cn(
-                          'inline-flex h-7 flex-1 items-center justify-center gap-1 rounded-md border text-xs font-medium transition-colors',
-                          i < s && 'border-primary bg-primary text-white',
-                          i === s && 'border-primary bg-accent text-primary',
-                          i > s && 'text-muted-foreground',
-                        )}
-                      >
-                        {i < s && <Check className="size-3" strokeWidth={3} />}
-                        {c}
-                      </span>
-                    </div>
+                  {it.approvals.map((a) => (
+                    <span
+                      key={a.step}
+                      title={a.status === 'Approved' ? `${a.name}${a.at ? ` · ${formatDate(a.at)}` : ''}` : a.name}
+                      className={cn(
+                        'inline-flex h-7 flex-1 items-center justify-center gap-1 rounded-md border text-xs font-medium transition-colors',
+                        a.status === 'Approved' && 'border-primary bg-primary text-white',
+                        a.status !== 'Approved' && a.step === step?.step && 'border-primary bg-accent text-primary',
+                        a.status !== 'Approved' && a.step !== step?.step && 'text-muted-foreground',
+                      )}
+                    >
+                      {a.status === 'Approved' && <Check className="size-3" strokeWidth={3} />}
+                      {a.role}
+                    </span>
                   ))}
                 </div>
                 <div className="mt-3 flex justify-end">
@@ -98,10 +128,12 @@ export function FinalDuesTab() {
                     <Badge variant="success" className="h-8 px-3">
                       Ready for bank run
                     </Badge>
-                  ) : (
-                    <Button size="sm" onClick={() => approve(it.o.id, it.e.name)}>
-                      Approve as {CHAIN[s]}
+                  ) : canSign(step, role) ? (
+                    <Button size="sm" onClick={() => approve(it)} disabled={busy === it.offboardingId}>
+                      {busy === it.offboardingId ? 'Saving…' : `Approve as ${step!.role}`}
                     </Button>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">Waiting for {step?.role} · {step?.name}</span>
                   )}
                 </div>
               </div>

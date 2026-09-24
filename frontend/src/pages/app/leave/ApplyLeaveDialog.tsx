@@ -12,8 +12,17 @@ import { Badge } from '@/components/ui/badge'
 import { DateRangePicker } from '@/components/shared/DatePicker'
 import { FileUploader } from '@/components/shared/FileUploader'
 import { SuccessCheck } from '@/components/shared/SuccessCheck'
+import { errorMessage, USE_MOCK_API } from '@/lib/api'
+import { uploadFile, type EmployeeFile, type FileCategory } from '@/lib/files'
 import { cn, formatDate, TODAY } from '@/lib/utils'
 import { LEAVE_TYPES, routeFor, toISO, workingDays } from './utils'
+
+/** Leave types that may go over the balance (HR is alerted instead). */
+const OVERDRAW_OK: LeaveType[] = ['Sick', 'Compassionate']
+/** The files API category for handover notes (see backend FILE_CATEGORIES). */
+const HANDOVER = 'Handover' as FileCategory
+
+export type NewLeave = LeaveRequest & { handoverFileId?: string }
 
 export function ApplyLeaveDialog({
   open,
@@ -30,13 +39,18 @@ export function ApplyLeaveDialog({
   colleagues: Employee[]
   holidays: Holiday[]
   remaining: Record<LeaveType, number>
-  onSubmit: (r: LeaveRequest) => void
+  /** Resolves with the saved request, or rejects with the server's message (e.g. not enough balance). */
+  onSubmit: (r: NewLeave) => Promise<LeaveRequest | void> | void
 }) {
   const [type, setType] = useState<LeaveType>('Annual')
   const [range, setRange] = useState<DateRange | undefined>()
   const [reason, setReason] = useState('')
   const [handoverTo, setHandoverTo] = useState<string>()
   const [notes, setNotes] = useState<string[]>([])
+  const [handoverFile, setHandoverFile] = useState<EmployeeFile | null>(null)
+  const [uploaderKey, setUploaderKey] = useState(0)
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [done, setDone] = useState<LeaveRequest | null>(null)
 
   const calc = useMemo(() => {
@@ -46,7 +60,8 @@ export function ApplyLeaveDialog({
   const days = calc?.days ?? 0
   const route = routeFor(days, type)
   const over = days > remaining[type]
-  const valid = !!range?.from && days > 0 && reason.trim().length > 2 && !!handoverTo
+  const blocked = over && !USE_MOCK_API && !OVERDRAW_OK.includes(type)
+  const valid = !!range?.from && days > 0 && reason.trim().length > 2 && !!handoverTo && !blocked && !submitting
 
   const reset = () => {
     setType('Annual')
@@ -54,12 +69,16 @@ export function ApplyLeaveDialog({
     setReason('')
     setHandoverTo(undefined)
     setNotes([])
+    setHandoverFile(null)
+    setUploaderKey((k) => k + 1)
+    setError(null)
+    setSubmitting(false)
     setDone(null)
   }
 
-  const submit = () => {
+  const submit = async () => {
     if (!valid || !range?.from) return
-    const req: LeaveRequest = {
+    const req: NewLeave = {
       id: `lv-new-${Date.now()}`,
       employeeId: user.id,
       type,
@@ -71,11 +90,20 @@ export function ApplyLeaveDialog({
       stage: 'Manager',
       submitted: TODAY,
       handoverTo,
-      handoverNotes: notes.length > 0,
+      handoverNotes: notes.length > 0 || !!handoverFile,
+      handoverFileId: handoverFile?.id,
     }
-    onSubmit(req)
-    setDone(req)
-    toast.success('Leave request submitted', { description: `${days} working day${days === 1 ? '' : 's'} of ${type} leave · sent to your manager` })
+    setSubmitting(true)
+    setError(null)
+    try {
+      const saved = (await onSubmit(req)) ?? req
+      setDone(saved)
+      toast.success('Leave request submitted', { description: `${saved.days} working day${saved.days === 1 ? '' : 's'} of ${type} leave · sent to your manager` })
+    } catch (err) {
+      setError(errorMessage(err))
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (
@@ -135,7 +163,11 @@ export function ApplyLeaveDialog({
                   ) : (
                     <div>{range?.from ? 'No public holidays in range' : 'Pick your dates'}</div>
                   )}
-                  {over && <div className="mt-0.5 font-medium text-warning">Exceeds your {type.toLowerCase()} balance ({remaining[type]} days)</div>}
+                  {over && (
+                    <div className="mt-0.5 font-medium text-warning">
+                      {blocked ? `Not enough ${type.toLowerCase()} leave — ${remaining[type]} days remaining` : `Exceeds your ${type.toLowerCase()} balance (${remaining[type]} days) — HR will be alerted`}
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -156,7 +188,20 @@ export function ApplyLeaveDialog({
                 </div>
                 <div className="grid grid-cols-1 gap-1.5">
                   <Label>Handover notes</Label>
-                  <FileUploader compact multiple={false} label="Upload handover notes" onComplete={(f) => setNotes((p) => [...p, ...f.map((x) => x.name)])} />
+                  {USE_MOCK_API ? (
+                    <FileUploader compact multiple={false} label="Upload handover notes" onComplete={(f) => setNotes((p) => [...p, ...f.map((x) => x.name)])} />
+                  ) : (
+                    <FileUploader<EmployeeFile>
+                      key={uploaderKey}
+                      compact
+                      multiple={false}
+                      accept=".pdf,.doc,.docx,.png,.jpg,.jpeg"
+                      hint="PDF or Word up to 10MB"
+                      label={handoverFile ? `Attached: ${handoverFile.filename}` : 'Upload handover notes'}
+                      upload={(file, onProgress) => uploadFile(file, { category: HANDOVER }, onProgress)}
+                      onUploaded={(files) => setHandoverFile(files[0] ?? null)}
+                    />
+                  )}
                 </div>
               </div>
 
@@ -177,12 +222,14 @@ export function ApplyLeaveDialog({
                 </div>
               </div>
 
+              {error && <div className="rounded-lg bg-danger-soft px-3 py-2 text-sm text-danger">{error}</div>}
+
               <DialogFooter>
                 <Button variant="outline" onClick={() => onOpenChange(false)}>
                   Cancel
                 </Button>
-                <Button onClick={submit} disabled={!valid}>
-                  Submit request
+                <Button onClick={() => void submit()} disabled={!valid}>
+                  {submitting ? 'Submitting…' : 'Submit request'}
                 </Button>
               </DialogFooter>
             </motion.div>

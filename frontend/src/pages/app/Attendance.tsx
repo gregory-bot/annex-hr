@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { addDays } from 'date-fns'
@@ -6,6 +6,7 @@ import { Bar, BarChart, CartesianGrid, ReferenceLine, ResponsiveContainer, Toolt
 import { format, parseISO } from 'date-fns'
 import { toast } from 'sonner'
 import { useWorkspace } from '@/context/auth'
+import { USE_MOCK_API } from '@/lib/api'
 import { isLeader } from '@/lib/rbac'
 import { cn, formatDate, TODAY } from '@/lib/utils'
 import { PageHeader } from '@/components/shared/PageHeader'
@@ -21,7 +22,8 @@ import { ClockCard, GeoCard } from './attendance/ClockCard'
 import { AttendanceHeatmap, MonthCalendar } from './attendance/Views'
 import { StatisticsCard, TodayActivity, useHourStats } from './attendance/Timesheet'
 import { useClock, type Clock } from './attendance/workday'
-import { SHIFT, entryFor, leaveToday, minutesToHM, monthToDate, personalStatus, thisMonday, todayRoster, weekDates, type DayStatus } from './attendance/data'
+import { useApiGet, useAttendanceStore, type AttendanceDay, type AttendanceSummary } from './attendance/api'
+import { SHIFT, entryFor, iso, leaveToday, minutesToHM, monthToDate, personalStatus, thisMonday, todayRoster, weekDates, type DayStatus } from './attendance/data'
 import { Kpi } from './dashboard/Kpi'
 
 type RecordStatus = 'On time' | 'Late' | 'Overtime' | 'Absent' | 'On leave' | 'Holiday' | 'Today'
@@ -59,13 +61,54 @@ function dayRecord(seed: string, date: string, holidays: Set<string>, clock: Clo
 }
 const cursorFill = { fill: 'var(--muted)', opacity: 0.6 }
 
+const serverOff: Partial<Record<AttendanceDay['status'], RecordStatus>> = { absent: 'Absent', leave: 'On leave', holiday: 'Holiday' }
+
+/** A server attendance day as a table row (today's row uses the live timer). */
+function fromServer(d: AttendanceDay, todayIso: string, clock: Clock): DayRecord {
+  if (d.date === todayIso) {
+    const h = clock.elapsed / 3_600_000
+    const status: RecordStatus = clock.state.clockedIn ? 'Today' : d.status === 'late' ? 'Late' : d.firstIn ? 'On time' : 'Today'
+    return { date: d.date, inMin: d.inMin, outMin: clock.state.clockedIn ? null : d.outMin, hours: +h.toFixed(2), breakMin: clock.breakMs / 60_000, overtime: Math.max(0, h - SHIFT.hoursPerDay), status }
+  }
+  const off = serverOff[d.status]
+  if (off) return { date: d.date, inMin: null, outMin: null, hours: 0, breakMin: 0, overtime: 0, status: off }
+  const status: RecordStatus = d.lateMinutes ? 'Late' : d.overtimeMinutes >= 60 ? 'Overtime' : 'On time'
+  return { date: d.date, inMin: d.inMin, outMin: d.outMin, hours: +(d.workedMinutes / 60).toFixed(2), breakMin: d.breakMinutes, overtime: +(d.overtimeMinutes / 60).toFixed(2), status }
+}
+
+const mondayOf = (isoDate: string) => {
+  const d = parseISO(isoDate)
+  return addDays(d, -((d.getDay() + 6) % 7))
+}
+
 export default function Attendance() {
   const { user, role, employees, holidays, trends, leaveRequests, workspace } = useWorkspace()
   const leader = isLeader(role)
   const [params, setParams] = useSearchParams()
   const tab = params.get('tab') ?? 'team'
   const clock = useClock(user.id)
+  const live = useAttendanceStore(user.id, !USE_MOCK_API)
+  const settings = live.data?.settings
+  const todayIso = clock.date ?? TODAY
   const holidaySet = useMemo(() => new Set(holidays.filter((h) => h.country === workspace.country).map((h) => h.date)), [holidays, workspace.country])
+
+  // Newest first: server history (live) or the deterministic month-to-date record (demo).
+  const records = useMemo<DayRecord[]>(
+    () => (USE_MOCK_API ? [...monthToDate()].reverse().map((d) => dayRecord(user.id, d, holidaySet, clock)) : (live.data?.days ?? []).map((d) => fromServer(d, todayIso, clock))),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [live.data, holidaySet, user.id, todayIso, Math.floor(clock.elapsed / 60_000), clock.state.clockedIn],
+  )
+  const exportRows = records.map((r) => ({
+    Date: r.date,
+    'Punch in': r.inMin === null ? '' : minutesToHM(r.inMin),
+    'Punch out': r.outMin === null ? '' : minutesToHM(r.outMin),
+    Hours: r.hours ? r.hours.toFixed(2) : '',
+    'Break (min)': Math.round(r.breakMin),
+    'Overtime (h)': r.overtime ? r.overtime.toFixed(2) : '',
+    Status: r.status,
+  }))
+
+  const mine = <MyAttendance seed={user.id} clock={clock} holidaySet={holidaySet} orgSeed={workspace.id} records={records} todayIso={todayIso} loading={!USE_MOCK_API && !live.data} error={live.error} />
 
   return (
     <div>
@@ -73,48 +116,73 @@ export default function Attendance() {
         eyebrow="People Ops"
         title="Time & attendance"
         description={leader ? 'Clock in, track your hours and monitor attendance across the organisation.' : 'Clock in, track your hours and review your attendance record.'}
-        actions={<ExportMenu filename="attendance-september-2026" />}
+        actions={<ExportMenu filename={`attendance-${todayIso}`} rows={USE_MOCK_API ? undefined : exportRows} />}
       />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div className="lg:col-span-2">
-          <ClockCard clock={clock} />
+          <ClockCard clock={clock} shiftLabel={settings ? `${settings.shiftStart}–${settings.shiftEnd}` : undefined} />
         </div>
-        <GeoCard office="Westlands Office" />
+        <GeoCard office="Westlands Office" live={!USE_MOCK_API} location={clock.location} clockedIn={clock.state.clockedIn} />
       </div>
 
       {leader ? (
         <Tabs value={tab} onValueChange={(t) => setParams({ tab: t }, { replace: true })} className="mt-6">
           <TabsList>
-            <TabsTrigger value="team">Organisation</TabsTrigger>
+            <TabsTrigger value="team">{role === 'manager' && !USE_MOCK_API ? 'My team' : 'Organisation'}</TabsTrigger>
             <TabsTrigger value="me">My attendance</TabsTrigger>
           </TabsList>
           <TabsContent value="team">
-            <OrgView employees={employees} trends={trends.attendance} onLeave={leaveToday(employees, leaveRequests)} holidaySet={holidaySet} seed={workspace.id} />
+            {USE_MOCK_API ? (
+              <OrgView employees={employees} trends={trends.attendance} onLeave={leaveToday(employees, leaveRequests)} holidaySet={holidaySet} seed={workspace.id} />
+            ) : (
+              <LiveOrgView holidaySet={holidaySet} seed={workspace.id} todayIso={todayIso} />
+            )}
           </TabsContent>
-          <TabsContent value="me">
-            <MyAttendance seed={user.id} clock={clock} holidaySet={holidaySet} orgSeed={workspace.id} />
-          </TabsContent>
+          <TabsContent value="me">{mine}</TabsContent>
         </Tabs>
       ) : (
-        <div className="mt-6">
-          <MyAttendance seed={user.id} clock={clock} holidaySet={holidaySet} orgSeed={workspace.id} />
-        </div>
+        <div className="mt-6">{mine}</div>
       )}
     </div>
   )
 }
 
-function MyAttendance({ seed, clock, holidaySet, orgSeed }: { seed: string; clock: Clock; holidaySet: Set<string>; orgSeed: string }) {
+function MyAttendance({
+  seed,
+  clock,
+  holidaySet,
+  orgSeed,
+  records,
+  todayIso,
+  loading,
+  error,
+}: {
+  seed: string
+  clock: Clock
+  holidaySet: Set<string>
+  orgSeed: string
+  records: DayRecord[]
+  todayIso: string
+  loading?: boolean
+  error?: string | null
+}) {
   const [range, setRange] = useState<'week' | 'last' | 'month'>('week')
   const stats = useHourStats(seed, holidaySet, clock.elapsed)
-  const month = useMemo(() => monthToDate(), [])
-  const chartDates = range === 'month' ? month : weekDates(range === 'week' ? thisMonday : addDays(thisMonday, -7))
+  const byDate = useMemo(() => new Map(records.map((r) => [r.date, r])), [records])
+  const monday = USE_MOCK_API ? thisMonday : mondayOf(todayIso)
+  const month = useMemo(() => {
+    if (USE_MOCK_API) return monthToDate()
+    const out: string[] = []
+    for (let d = parseISO(todayIso.slice(0, 8) + '01'); iso(d) <= todayIso; d = addDays(d, 1)) if (d.getDay() % 6 !== 0) out.push(iso(d))
+    return out
+  }, [todayIso])
+  const chartDates = range === 'month' ? month : weekDates(range === 'week' ? monday : addDays(monday, -7))
+  const hoursOn = (date: string) => (date > todayIso ? 0 : USE_MOCK_API ? dayRecord(seed, date, holidaySet, clock).hours : (byDate.get(date)?.hours ?? 0))
   const chart = chartDates.map((date) => ({
     label: range === 'month' ? format(parseISO(date), 'd') : format(parseISO(date), 'EEE'),
-    hours: date > TODAY ? 0 : +dayRecord(seed, date, holidaySet, clock).hours.toFixed(1),
+    hours: +hoursOn(date).toFixed(1),
   }))
-  const records = [...month].reverse().map((d) => dayRecord(seed, d, holidaySet, clock))
 
   const columns: Column<DayRecord>[] = [
     {
@@ -175,7 +243,11 @@ function MyAttendance({ seed, clock, holidaySet, orgSeed }: { seed: string; cloc
           <div className="mt-2 text-xs text-muted-foreground">Dashed line: {SHIFT.hoursPerDay} hr target</div>
         </Section>
       </div>
-      <Section title="Attendance list" description={`${format(parseISO(TODAY), 'MMMM yyyy')} · ${records.length} working days`} contentClassName="p-0 sm:p-0">
+      <Section
+        title="Attendance list"
+        description={USE_MOCK_API ? `${format(parseISO(TODAY), 'MMMM yyyy')} · ${records.length} working days` : loading ? (error ?? 'Loading your attendance…') : `Last 6 weeks · ${records.length} working days`}
+        contentClassName="p-0 sm:p-0"
+      >
         <DataTable rows={records} columns={columns} rowKey={(r) => r.date} pageSize={8}
           mobileCard={(r) => (
             <div>
@@ -198,10 +270,10 @@ function MyAttendance({ seed, clock, holidaySet, orgSeed }: { seed: string; cloc
       </Section>
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Section title="Attendance calendar" description="Your daily status this month">
-          <MonthCalendar seed={seed} holidays={holidaySet} />
+          <MonthCalendar seed={seed} holidays={holidaySet} todayIso={todayIso} />
         </Section>
-        <Section title="Organisation attendance" description="Share of employees present each weekday · last 16 weeks">
-          <AttendanceHeatmap holidays={holidaySet} seed={orgSeed} />
+        <Section title="Organisation attendance" description={`Share of employees present each weekday · last ${USE_MOCK_API ? 16 : 8} weeks`}>
+          <AttendanceHeatmap holidays={holidaySet} seed={orgSeed} weeksCount={USE_MOCK_API ? 16 : 8} todayIso={todayIso} />
         </Section>
       </div>
     </div>
@@ -334,6 +406,99 @@ function OrgView({
 
       <Section title="Attendance heatmap" description="Share of employees present each weekday · last 16 weeks">
         <AttendanceHeatmap holidays={holidaySet} seed={seed} />
+      </Section>
+    </div>
+  )
+}
+
+/** Today's attendance for the organisation (HR / CEO) or a manager's direct reports, from the server. */
+function LiveOrgView({ holidaySet, seed, todayIso }: { holidaySet: Set<string>; seed: string; todayIso: string }) {
+  const { data, error, reload } = useApiGet<AttendanceSummary>('/attendance/summary')
+  useEffect(() => {
+    const t = setInterval(reload, 60_000)
+    return () => clearInterval(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  if (!data) return <div className="rounded-xl border border-dashed py-12 text-center text-sm text-muted-foreground">{error ?? 'Loading today’s attendance…'}</div>
+
+  const who = data.scope === 'team' ? 'your team' : 'the organisation'
+  const maxOt = data.overtime[0]?.hours || 1
+  const series = [
+    { key: 'onTime', label: 'On time', color: SERIES[0] },
+    { key: 'late', label: 'Late', color: SERIES[1] },
+    { key: 'absent', label: 'Absent', color: SERIES[2] },
+  ] as const
+  const graceAt = minutesToHM(Number(data.settings.shiftStart.slice(0, 2)) * 60 + Number(data.settings.shiftStart.slice(3)) + data.settings.graceMin)
+
+  return (
+    <div className="grid grid-cols-1 gap-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+        <Kpi index={0} label="Present today" value={data.present} hint={`of ${data.active} active${data.notInYet ? ` · ${data.notInYet} not in yet` : ''}`} />
+        <Kpi index={1} label="Late arrivals" value={data.late} hint={`after ${graceAt} grace`} />
+        <Kpi index={2} label="On leave" value={data.onLeave} hint={data.absent ? `${data.absent} absent without leave` : 'approved today'} />
+        <Kpi index={3} label="Overtime this week" value={data.overtimeWeekHours} format={(n) => `${Math.round(n)} h`} hint={`hours beyond ${data.settings.hoursPerDay} h/day`} />
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <Section title="Late arrivals today" description={`Shift starts ${data.settings.shiftStart} · ${data.lateArrivals.length} ${data.lateArrivals.length === 1 ? 'person' : 'people'}`} contentClassName="px-2">
+          {data.lateArrivals.length === 0 ? (
+            <div className="px-3 py-8 text-center text-sm text-muted-foreground">Everyone in {who} arrived on time.</div>
+          ) : (
+            <ul className="divide-y">
+              {data.lateArrivals.map((r, i) => (
+                <motion.li key={r.employeeId} initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.04 }} className="flex items-center justify-between gap-3 px-3 py-2.5">
+                  <PersonCell name={r.name} sub={r.title} size="sm" />
+                  <div className="shrink-0 text-right">
+                    <div className="text-sm font-semibold tabular">{minutesToHM(r.inMin)}</div>
+                    <div className="text-[11px] text-warning">+{r.minutesLate} min</div>
+                  </div>
+                </motion.li>
+              ))}
+            </ul>
+          )}
+        </Section>
+
+        <Section title="Overtime leaderboard" description={`Hours beyond ${data.settings.hoursPerDay} h/day · last 2 weeks`}>
+          {data.overtime.length === 0 ? (
+            <div className="py-8 text-center text-sm text-muted-foreground">No overtime logged in the last 2 weeks.</div>
+          ) : (
+            <ol className="space-y-3">
+              {data.overtime.map((o, i) => (
+                <li key={o.employeeId} className="flex items-center gap-3">
+                  <span className={cn('flex size-6 shrink-0 items-center justify-center rounded-full text-[11px] font-bold', i === 0 ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground')}>{i + 1}</span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-baseline justify-between gap-2">
+                      <span className="truncate text-sm font-medium">{o.name}</span>
+                      <span className="shrink-0 text-xs font-semibold tabular">{o.hours} h</span>
+                    </div>
+                    <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-muted">
+                      <motion.div className="h-full rounded-full" style={{ background: SERIES[0] }} initial={{ width: 0 }} animate={{ width: `${(o.hours / maxOt) * 100}%` }} transition={{ duration: 0.8, delay: i * 0.05 }} />
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          )}
+        </Section>
+
+        <Section title="Attendance trend" description="This week by weekday">
+          <Legend items={series.map((s) => ({ label: s.label, color: s.color }))} className="mb-3" />
+          <ResponsiveContainer width="100%" height={260}>
+            <BarChart data={data.trend} margin={{ top: 4, right: 4, left: -8, bottom: 0 }}>
+              <CartesianGrid {...gridProps} />
+              <XAxis dataKey="day" {...axisProps} />
+              <YAxis {...axisProps} width={40} allowDecimals={false} />
+              <Tooltip content={<ChartTooltip valueFormatter={(v) => `${v} people`} />} cursor={cursorFill} />
+              {series.map((s, i) => (
+                <Bar key={s.key} dataKey={s.key} name={s.label} stackId="a" fill={s.color} stroke="var(--card)" strokeWidth={2} maxBarSize={32} radius={i === series.length - 1 ? [4, 4, 0, 0] : [0, 0, 0, 0]} />
+              ))}
+            </BarChart>
+          </ResponsiveContainer>
+        </Section>
+      </div>
+
+      <Section title="Attendance heatmap" description="Share of employees present each weekday · last 8 weeks">
+        <AttendanceHeatmap holidays={holidaySet} seed={seed} weeksCount={8} todayIso={todayIso} />
       </Section>
     </div>
   )

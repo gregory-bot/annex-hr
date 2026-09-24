@@ -46,9 +46,9 @@ export function entryFor(seed: string, date: string): DayEntry {
   return { date, day: format(parseISO(date), 'EEE'), inMin, outMin, breakMin, hours, overtime: +Math.max(0, hours - SHIFT.hoursPerDay).toFixed(1), status }
 }
 
-export type DayStatus = 'present' | 'late' | 'absent' | 'leave' | 'holiday' | 'weekend' | 'upcoming'
+export type DayStatus = 'present' | 'late' | 'absent' | 'leave' | 'holiday' | 'weekend' | 'upcoming' | 'none'
 
-export const statusMeta: Record<Exclude<DayStatus, 'weekend' | 'upcoming'>, { label: string; cell: string; dot: string }> = {
+export const statusMeta: Record<Exclude<DayStatus, 'weekend' | 'upcoming' | 'none'>, { label: string; cell: string; dot: string }> = {
   present: { label: 'Present', cell: 'bg-success-soft text-success', dot: 'bg-success' },
   late: { label: 'Late', cell: 'bg-warning-soft text-warning', dot: 'bg-warning' },
   absent: { label: 'Absent', cell: 'bg-danger-soft text-danger', dot: 'bg-danger' },

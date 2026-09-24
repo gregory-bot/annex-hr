@@ -10,7 +10,9 @@ import { SimpleSelect } from '@/components/ui/select'
 import { DatePicker } from '@/components/shared/DatePicker'
 import { FileUploader } from '@/components/shared/FileUploader'
 import type { Employee, Offboarding } from '@/data/types'
+import { errorMessage } from '@/lib/api'
 import { TODAY, cn } from '@/lib/utils'
+import { FILE_ACCEPT_DOCS } from '../cases/upload'
 import { NOTICE_DAYS, REASONS, WORKFLOW, shiftDate } from './helpers'
 
 /** Compact, wrap-friendly step list for the 7-stage resignation workflow. */
@@ -56,18 +58,20 @@ export function StartOffboardingDialog({
   open: boolean
   onOpenChange: (o: boolean) => void
   employees: Employee[]
-  onCreate: (o: Pick<Offboarding, 'employeeId' | 'reason' | 'submitted' | 'lastDay' | 'noticeDays'>, letter?: string) => void
+  onCreate: (o: Pick<Offboarding, 'employeeId' | 'reason' | 'submitted' | 'lastDay'>, letter?: File) => Promise<void>
 }) {
   const [employeeId, setEmployeeId] = useState(initialEmployeeId)
   const [reason, setReason] = useState<Offboarding['reason']>('Resignation')
   const [submitted, setSubmitted] = useState(TODAY)
   const [lastDay, setLastDay] = useState(shiftDate(TODAY, NOTICE_DAYS))
   const [lastDayTouched, setLastDayTouched] = useState(false)
-  const [letter, setLetter] = useState<string | undefined>()
+  const [letter, setLetter] = useState<File | undefined>()
+  const [uploaderKey, setUploaderKey] = useState(0)
+  const [busy, setBusy] = useState(false)
 
   const notice = Math.round((parseISO(lastDay).getTime() - parseISO(submitted).getTime()) / 86_400_000)
 
-  const submit = () => {
+  const submit = async () => {
     if (!employeeId) {
       toast.error('Select the departing employee')
       return
@@ -76,7 +80,16 @@ export function StartOffboardingDialog({
       toast.error('Last working day must be after the submission date')
       return
     }
-    onCreate({ employeeId, reason, submitted, lastDay, noticeDays: notice }, letter)
+    setBusy(true)
+    try {
+      await onCreate({ employeeId, reason, submitted, lastDay }, letter)
+    } catch (err) {
+      toast.error('Could not start offboarding', { description: errorMessage(err) })
+      return
+    } finally {
+      setBusy(false)
+    }
+    setUploaderKey((k) => k + 1)
     setEmployeeId('')
     setReason('Resignation')
     setSubmitted(TODAY)
@@ -135,7 +148,19 @@ export function StartOffboardingDialog({
           </div>
           <div className="grid grid-cols-1 gap-2 sm:col-span-2">
             <Label>{reason === 'Resignation' ? 'Resignation letter' : 'Supporting letter'}</Label>
-            <FileUploader compact multiple={false} label="Upload signed letter" hint="PDF or scanned image" onComplete={(f) => setLetter(f[0]?.name)} />
+            <FileUploader
+              key={uploaderKey}
+              compact
+              multiple={false}
+              accept={FILE_ACCEPT_DOCS}
+              label="Upload signed letter"
+              hint="PDF, scanned image or Word up to 10 MB · stored with the exit record"
+              upload={(file, onProgress) => {
+                onProgress(100)
+                return Promise.resolve(file)
+              }}
+              onUploaded={(files) => setLetter(files[0])}
+            />
           </div>
         </div>
 
@@ -143,8 +168,8 @@ export function StartOffboardingDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={submit} disabled={!employeeId}>
-            Start offboarding
+          <Button onClick={() => void submit()} disabled={!employeeId || busy}>
+            {busy ? 'Starting…' : 'Start offboarding'}
           </Button>
         </DialogFooter>
       </DialogContent>

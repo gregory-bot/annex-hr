@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { motion } from 'framer-motion'
 import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { useWorkspace } from '@/context/auth'
+import type { Employee } from '@/data/types'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -9,24 +10,27 @@ import { PersonAvatar } from '@/components/ui/avatar'
 import { Section } from '@/components/shared/Section'
 import { StatCard } from '@/components/shared/StatCard'
 import { ChartTooltip, SERIES, axisProps, gridProps } from '@/components/charts/ChartKit'
-import { daysUntil } from '@/lib/utils'
+import { daysUntil, formatDate } from '@/lib/utils'
 import { quarterTrend, readinessOf, type Objective, type ReviewRow } from './data'
 
 const cursor = { fill: 'var(--muted)', opacity: 0.6 }
 
 export function OverviewTab({
   org,
+  people,
   reviews,
   objectives,
+  closesOn = '2026-10-10',
   onGo,
 }: {
   org: boolean
+  people: Employee[]
   reviews: ReviewRow[]
   objectives: Objective[]
+  closesOn?: string
   onGo: (tab: string) => void
 }) {
-  const { employees, user, department } = useWorkspace()
-  const people = useMemo(() => employees.filter((e) => e.status !== 'Exited' && e.employmentType !== 'Consultant'), [employees])
+  const { user, department } = useWorkspace()
   const avg = people.reduce((s, e) => s + e.performance, 0) / Math.max(1, people.length)
   const completed = reviews.filter((r) => r.manager === 'Submitted').length
   const completedPct = reviews.length ? Math.round((completed / reviews.length) * 100) : 0
@@ -62,8 +66,8 @@ export function OverviewTab({
           <>
             <StatCard index={0} label="My last rating" value={user.performance.toFixed(1)} hint="Q2 2026 · calibrated" />
             <StatCard index={1} label="Self review" value={mine?.self ?? 'Not started'} tone={mine?.self === 'Submitted' ? 'success' : 'warning'} />
-            <StatCard index={2} label="Company goals on track" value={`${onTrack}/${krs.length}`} />
-            <StatCard index={3} label="Cycle closes" value={`${daysUntil('2026-10-10')} days`} hint="10 Oct 2026" />
+            <StatCard index={2} label="My key results on track" value={`${onTrack}/${krs.length}`} />
+            <StatCard index={3} label="Cycle closes" value={`${Math.max(0, daysUntil(closesOn))} days`} hint={formatDate(closesOn)} />
           </>
         )}
       </div>

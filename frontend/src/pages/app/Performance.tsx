@@ -1,11 +1,18 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { toast } from 'sonner'
 import { useSearchParams } from 'react-router-dom'
 import { useWorkspace } from '@/context/auth'
 import { isLeader } from '@/lib/rbac'
+import { api, errorMessage, USE_MOCK_API } from '@/lib/api'
+import { formatDate } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { PageHeader } from '@/components/shared/PageHeader'
-import { buildObjectives, reviewFor, type ReviewRow } from './performance/data'
+import { buildObjectives } from './performance/data'
+import type { TalentRow } from './performance/api'
+import type { Employee } from '@/data/types'
+import { useObjectives } from './performance/useObjectives'
+import { useReviews } from './performance/useReviews'
 import { OverviewTab } from './performance/OverviewTab'
 import { KpiTab } from './performance/KpiTab'
 import { OkrTab } from './performance/OkrTab'
@@ -18,7 +25,7 @@ export default function Performance() {
 }
 
 function PerformancePage() {
-  const { employees, departments, workspace, role } = useWorkspace()
+  const { employees, departments, workspace, role, user } = useWorkspace()
   const org = isLeader(role)
   const [params, setParams] = useSearchParams()
 
@@ -41,13 +48,56 @@ function PerformancePage() {
       { replace: true },
     )
 
-  const objectives = useMemo(() => buildObjectives(workspace.id, departments, employees), [workspace.id, departments, employees])
-  const [reviews, setReviews] = useState<ReviewRow[]>(() =>
-    employees.filter((e) => e.status !== 'Exited' && e.employmentType !== 'Consultant' && e.role !== 'ceo').map(reviewFor),
+  const seededObjectives = useMemo(() => {
+    const all = buildObjectives(workspace.id, departments, employees)
+    return org ? all : all.filter((o) => o.ownerId === user.id)
+  }, [workspace.id, departments, employees, org, user.id])
+  const okrs = useObjectives(seededObjectives, user.name)
+  const reviews = useReviews(employees)
+
+  // Performance and potential can change after a release or calibration — read them fresh for the 9-box.
+  const [talent, setTalent] = useState<Record<string, TalentRow>>({})
+  useEffect(() => {
+    if (USE_MOCK_API || !org) return
+    let cancelled = false
+    api
+      .get<TalentRow[]>('/performance/talent')
+      .then((rows) => !cancelled && setTalent(Object.fromEntries(rows.map((r) => [r.employeeId, r]))))
+      .catch(() => undefined)
+    return () => {
+      cancelled = true
+    }
+  }, [org])
+  const people = useMemo(
+    () =>
+      employees
+        .filter((e) => e.status !== 'Exited' && e.employmentType !== 'Consultant' && e.role !== 'ceo')
+        .map((e) => (talent[e.id] ? { ...e, performance: talent[e.id]!.performance, potential: talent[e.id]!.potential as Employee['potential'] } : e)),
+    [employees, talent],
   )
 
-  const submitReview = (employeeId: string, mode: 'self' | 'manager', rating: number) =>
-    setReviews((rs) => rs.map((r) => (r.employee.id !== employeeId ? r : mode === 'self' ? { ...r, self: 'Submitted' } : { ...r, manager: 'Submitted', final: rating })))
+  const setPotential = async (employeeId: string, potential: number) => {
+    const prev = talent[employeeId]
+    const base = people.find((e) => e.id === employeeId)
+    if (!base) return
+    setTalent((t) => ({ ...t, [employeeId]: { employeeId, performance: base.performance, potential } }))
+    if (USE_MOCK_API) return
+    try {
+      const saved = await api.patch<TalentRow>(`/performance/talent/${employeeId}`, { potential })
+      setTalent((t) => ({ ...t, [employeeId]: saved }))
+      toast.success('Potential updated')
+    } catch (err) {
+      setTalent((t) => {
+        const next = { ...t }
+        if (prev) next[employeeId] = prev
+        else delete next[employeeId]
+        return next
+      })
+      toast.error('Potential not saved', { description: errorMessage(err) })
+    }
+  }
+
+  const cycleLabel = reviews.cycle ? `${reviews.cycle.name.replace(' review', '')} cycle · ${reviews.cycle.released ? 'released' : `closes ${formatDate(reviews.cycle.closesOn, 'short')}`}` : 'Review cycle'
 
   return (
     <>
@@ -57,7 +107,7 @@ function PerformancePage() {
         description={org ? 'Balanced scorecard, OKRs, quarterly reviews and succession — calibrated in one place.' : 'Your goals, company KPIs and your Q3 review.'}
         actions={
           <Badge variant="outline" className="h-8 px-3">
-            Q3 2026 cycle · closes 10 Oct
+            {cycleLabel}
           </Badge>
         }
       />
@@ -70,20 +120,20 @@ function PerformancePage() {
           ))}
         </TabsList>
         <TabsContent value="overview">
-          <OverviewTab org={org} reviews={reviews} objectives={objectives} onGo={setTab} />
+          <OverviewTab org={org} people={people} reviews={reviews.rows} objectives={okrs.objectives} closesOn={reviews.cycle?.closesOn} onGo={setTab} />
         </TabsContent>
         <TabsContent value="kpis">
           <KpiTab />
         </TabsContent>
         <TabsContent value="okrs">
-          <OkrTab objectives={objectives} />
+          <OkrTab okrs={okrs} />
         </TabsContent>
         <TabsContent value="reviews">
-          <ReviewsTab org={org} reviews={reviews} onSubmit={submitReview} />
+          <ReviewsTab org={org} reviews={reviews} />
         </TabsContent>
         {org && (
           <TabsContent value="succession">
-            <SuccessionTab />
+            <SuccessionTab people={people} onSetPotential={setPotential} />
           </TabsContent>
         )}
       </Tabs>

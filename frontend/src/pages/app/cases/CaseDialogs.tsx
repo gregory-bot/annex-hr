@@ -8,8 +8,10 @@ import { SimpleSelect } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { FileUploader } from '@/components/shared/FileUploader'
 import type { Employee, HRCase } from '@/data/types'
-import { TODAY } from '@/lib/utils'
+import { errorMessage } from '@/lib/api'
 import { CASE_TYPES, SEVERITIES } from './helpers'
+import { FILE_ACCEPT_DOCS } from './upload'
+import type { NewCase } from './useCases'
 
 const REVEAL_REASONS = ['Active investigation', 'Preparing hearing', 'Approval review', 'Legal / compliance request']
 
@@ -74,7 +76,7 @@ export function LogCaseDialog({
   open: boolean
   onOpenChange: (o: boolean) => void
   employees: Employee[]
-  onCreate: (c: Omit<HRCase, 'id' | 'ref' | 'assignedTo' | 'timeline'>) => void
+  onCreate: (c: NewCase, files: File[]) => Promise<void>
 }) {
   const [type, setType] = useState<HRCase['type']>('Grievance')
   const [subjectId, setSubjectId] = useState('')
@@ -83,7 +85,9 @@ export function LogCaseDialog({
   const [severity, setSeverity] = useState<HRCase['severity']>('Medium')
   const [description, setDescription] = useState('')
   const [confidential, setConfidential] = useState(true)
-  const [evidence, setEvidence] = useState<{ name: string; size: string }[]>([])
+  const [evidence, setEvidence] = useState<File[]>([])
+  const [uploaderKey, setUploaderKey] = useState(0)
+  const [busy, setBusy] = useState(false)
 
   const options = employees.map((e) => ({ value: e.id, label: `${e.name} · ${e.title}` }))
   const valid = subjectId && (anonymous || reporterId) && description.trim().length >= 10
@@ -97,25 +101,23 @@ export function LogCaseDialog({
     setDescription('')
     setConfidential(true)
     setEvidence([])
+    setUploaderKey((k) => k + 1)
   }
 
-  const submit = () => {
+  const submit = async () => {
     if (!valid) {
       toast.error('Add the subject, reporter and a description of at least 10 characters.')
       return
     }
-    onCreate({
-      type,
-      subjectId,
-      reportedBy: anonymous ? 'Anonymous' : reporterId,
-      opened: TODAY,
-      status: 'Logged',
-      severity,
-      confidential,
-      summary: description.trim(),
-      evidence: evidence.map((f) => ({ ...f, uploaded: TODAY })),
-    })
-    reset()
+    setBusy(true)
+    try {
+      await onCreate({ type, subjectId, reportedBy: anonymous ? 'Anonymous' : reporterId, severity, confidential, summary: description.trim() }, evidence)
+      reset()
+    } catch (err) {
+      toast.error('Could not log the case', { description: errorMessage(err) })
+    } finally {
+      setBusy(false)
+    }
   }
 
   return (
@@ -165,7 +167,18 @@ export function LogCaseDialog({
           </div>
           <div className="grid grid-cols-1 gap-2 sm:col-span-2">
             <Label>Evidence</Label>
-            <FileUploader compact label="Attach statements, screenshots or recordings" hint="PDF, images, audio · up to 25 MB" onComplete={(f) => setEvidence((prev) => [...prev, ...f])} />
+            <FileUploader
+              key={uploaderKey}
+              compact
+              accept={FILE_ACCEPT_DOCS}
+              label="Attach statements or screenshots"
+              hint="PDF, images or Word · up to 10 MB each · uploaded when the case is logged"
+              upload={(file, onProgress) => {
+                onProgress(100)
+                return Promise.resolve(file)
+              }}
+              onUploaded={(files) => setEvidence((prev) => [...prev, ...files])}
+            />
           </div>
           <label className="flex items-start justify-between gap-3 rounded-lg border p-3 sm:col-span-2">
             <span>
@@ -179,8 +192,8 @@ export function LogCaseDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={submit} disabled={!valid}>
-            Log case
+          <Button onClick={() => void submit()} disabled={!valid || busy}>
+            {busy ? 'Logging…' : 'Log case'}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -3,7 +3,7 @@ import { api, ApiError } from '@/lib/api'
 
 const BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? '/api'
 
-export const FILE_CATEGORIES = ['National ID', 'KRA PIN', 'SHIF', 'NSSF', 'Passport', 'NDA', 'Contract', 'Certificate', 'Other'] as const
+export const FILE_CATEGORIES = ['National ID', 'KRA PIN', 'SHIF', 'NSSF', 'Passport', 'NDA', 'Contract', 'Certificate', 'Handover', 'Other'] as const
 export type FileCategory = (typeof FILE_CATEGORIES)[number]
 
 export const MAX_FILE_BYTES = 10 * 1024 * 1024

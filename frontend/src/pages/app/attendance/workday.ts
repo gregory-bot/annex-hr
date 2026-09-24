@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
+import { api, errorMessage, USE_MOCK_API } from '@/lib/api'
 import { TODAY } from '@/lib/utils'
 import { entryFor, hash01 } from './data'
+import { applyToday, currentPosition, todMs, useAttendanceStore, type TodaySummary } from './api'
 
 const MIN = 60_000
 const pad = (n: number) => String(n).padStart(2, '0')
@@ -38,11 +40,32 @@ export interface ClockState {
   log: ClockEvent[]
 }
 
+/** What the clock card, today's activity and the dashboard read. */
+export interface Clock {
+  /** Time of day in ms (local). */
+  now: number
+  state: { clockedIn: boolean; onBreak: boolean; log: ClockEvent[] }
+  elapsed: number
+  breakMs: number
+  toggle: (via?: string) => void
+  toggleBreak: () => void
+  statusLabel: string
+  firstIn: number | null
+  /** True while a punch is being saved. */
+  busy?: boolean
+  /** False until today's record has loaded from the server. */
+  ready?: boolean
+  /** Work date (server's local date in live mode). */
+  date?: string
+  location?: { latitude: number; longitude: number } | null
+  lateMinutes?: number
+}
+
 /**
- * A deterministic workday that keeps ticking live. The person is already
+ * Demo mode: a deterministic workday that keeps ticking live. The person is already
  * punched in (seeded from their id); the timer then advances in real time.
  */
-export function useClock(seed: string) {
+function useMockClock(seed: string): Clock {
   const [origin] = useState(() => {
     const entry = entryFor(seed, TODAY)
     const tea = 15 * MIN
@@ -112,7 +135,84 @@ export function useClock(seed: string) {
   const statusLabel = !state.clockedIn ? 'Punched out' : state.onBreak ? 'On break' : 'Working'
   const firstIn = state.log.find((l) => l.kind === 'in')?.at ?? null
 
-  return { now, state, elapsed, breakMs, toggle, toggleBreak, statusLabel, firstIn }
+  return { now, state, elapsed, breakMs, toggle, toggleBreak, statusLabel, firstIn, ready: true, date: TODAY }
 }
 
-export type Clock = ReturnType<typeof useClock>
+/** Live mode: today's record comes from the server (GET /attendance/me) and every punch is saved. */
+function useLiveClock(seed: string): Clock {
+  const key = seed
+  const { data, receivedAt } = useAttendanceStore(key, true)
+  const [tick, setTick] = useState(() => Date.now())
+  const [busy, setBusy] = useState(false)
+  useEffect(() => {
+    const t = setInterval(() => setTick(Date.now()), 1000)
+    return () => clearInterval(t)
+  }, [])
+
+  const today = data?.today
+  const since = Math.max(0, tick - receivedAt)
+  const working = today?.state === 'working'
+  const onBreak = today?.state === 'break'
+  const elapsed = (today?.workedSeconds ?? 0) * 1000 + (working ? since : 0)
+  const breakMs = (today?.breakSeconds ?? 0) * 1000 + (onBreak ? since : 0)
+  const d = new Date(tick)
+  const now = ((d.getHours() * 60 + d.getMinutes()) * 60 + d.getSeconds()) * 1000
+  const log: ClockEvent[] = (today?.events ?? []).map((e) => ({ at: todMs(e.at), kind: e.kind, label: e.label }))
+
+  const run = async (label: string, fn: () => Promise<TodaySummary>, done: (t: TodaySummary) => void) => {
+    if (busy) return
+    setBusy(true)
+    try {
+      const t = await fn()
+      applyToday(key, t)
+      done(t)
+    } catch (err) {
+      toast.error(`${label} not saved`, { description: errorMessage(err) })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const toggle = (via?: string) => {
+    if (!today) return
+    if (today.state === 'out') {
+      void run(
+        'Punch in',
+        async () => {
+          const pos = await currentPosition()
+          return api.post<TodaySummary>('/attendance/clock-in', { method: via ?? 'Web', ...(pos ?? {}) })
+        },
+        (t) => toast.success(`Punched in at ${hm(todMs(t.events.filter((e) => e.kind === 'in').at(-1)?.at ?? t.serverTime))}`, { description: t.location ? 'Location recorded with your punch' : 'Location not shared' }),
+      )
+    } else {
+      void run('Punch out', () => api.post<TodaySummary>('/attendance/clock-out'), (t) =>
+        toast.success(`Punched out at ${hm(todMs(t.lastOut ?? t.serverTime))}`, { description: `${hrs(t.workedSeconds * 1000)} hrs worked today` }),
+      )
+    }
+  }
+
+  const toggleBreak = () => {
+    if (!today || today.state === 'out') return
+    if (today.state === 'working') void run('Break', () => api.post<TodaySummary>('/attendance/break/start'), () => toast('Break started', { description: 'Timer paused' }))
+    else void run('Break', () => api.post<TodaySummary>('/attendance/break/end'), () => toast.success('Timer resumed'))
+  }
+
+  return {
+    now,
+    state: { clockedIn: working || onBreak, onBreak, log },
+    elapsed,
+    breakMs,
+    toggle,
+    toggleBreak,
+    statusLabel: !today ? 'Loading…' : today.state === 'out' ? (today.firstIn ? 'Punched out' : 'Not punched in') : onBreak ? 'On break' : 'Working',
+    firstIn: today?.firstIn ? todMs(today.firstIn) : null,
+    busy,
+    ready: !!today,
+    date: today?.date,
+    location: today?.location ?? null,
+    lateMinutes: today?.lateMinutes ?? 0,
+  }
+}
+
+/** The workday clock: persisted through the API, or simulated in demo (mock API) mode. */
+export const useClock: (seed: string) => Clock = USE_MOCK_API ? useMockClock : useLiveClock

@@ -8,6 +8,7 @@ import { CompanyProfile } from './settings/CompanyProfile'
 import { HolidayCalendars, InviteUsers, PoliciesSettings, Taxonomy } from './settings/OrgSettings'
 import { Integrations, RolesPermissions } from './settings/AccessSettings'
 import { ApiKeys, AuditLogs, SecuritySettings } from './settings/SecuritySettings'
+import { Automations } from './settings/Automations'
 
 const TABS: { id: string; label: string; group: string; render: () => React.ReactNode }[] = [
   { id: 'company', label: 'Company profile', group: 'Organisation', render: () => <CompanyProfile /> },
@@ -16,6 +17,7 @@ const TABS: { id: string; label: string; group: string; render: () => React.Reac
   { id: 'policies', label: 'Policies', group: 'Organisation', render: () => <PoliciesSettings /> },
   { id: 'invite', label: 'Invite users', group: 'Access', render: () => <InviteUsers /> },
   { id: 'roles', label: 'Roles & permissions', group: 'Access', render: () => <RolesPermissions /> },
+  { id: 'automations', label: 'Automations', group: 'Platform', render: () => <Automations /> },
   { id: 'integrations', label: 'Integrations', group: 'Platform', render: () => <Integrations /> },
   { id: 'security', label: 'Security', group: 'Platform', render: () => <SecuritySettings /> },
   { id: 'audit', label: 'Audit logs', group: 'Platform', render: () => <AuditLogs /> },
@@ -30,6 +32,7 @@ const ALIASES: Record<string, string> = {
   permissions: 'roles',
   'audit-logs': 'audit',
   'api-keys': 'api',
+  reminders: 'automations',
 }
 
 export default function Settings() {

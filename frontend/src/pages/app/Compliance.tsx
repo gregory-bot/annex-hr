@@ -1,7 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useWorkspace } from '@/context/auth'
-import type { ComplianceDoc } from '@/data/types'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ExportMenu } from '@/components/shared/ExportMenu'
 import { PageHeader } from '@/components/shared/PageHeader'
@@ -12,21 +11,23 @@ import { ExpiryAlerts } from './compliance/ExpiryAlerts'
 import { PolicyUpdates } from './compliance/PolicyUpdates'
 import { AuditFiles } from './compliance/AuditFiles'
 import type { DocRow } from './compliance/shared'
+import { useComplianceDocs, usePolicies } from './compliance/api'
 
 const TABS = ['overview', 'documents', 'alerts', 'policies', 'audit'] as const
 type Tab = (typeof TABS)[number]
 
 export default function Compliance() {
-  const { complianceDocs, employees, policies, user, role, employee, department } = useWorkspace()
+  const { complianceDocs, employees, policies: policySeed, user, role, employee, department } = useWorkspace()
   const [params, setParams] = useSearchParams()
-  const [added, setAdded] = useState<ComplianceDoc[]>([])
+  const { docs: items, upsert } = useComplianceDocs(complianceDocs)
+  const { policies, reload: reloadPolicies } = usePolicies(policySeed)
   const self = isSelfRole(role)
 
   const scope = useMemo(() => scopeEmployees(employees.filter((e) => e.status !== 'Exited'), user, role), [employees, user, role])
   const docs = useMemo<DocRow[]>(() => {
     const ids = new Set(scope.map((e) => e.id))
-    return [...added, ...complianceDocs].filter((d) => ids.has(d.employeeId)).map((d) => ({ ...d, emp: employee(d.employeeId) }))
-  }, [added, complianceDocs, scope, employee])
+    return items.filter((d) => ids.has(d.employeeId)).map((d) => ({ ...d, emp: employee(d.employeeId) }))
+  }, [items, scope, employee])
 
   const allowed: Tab[] = self ? ['overview', 'documents', 'alerts', 'policies'] : [...TABS]
   const requested = params.get('tab') as Tab | null
@@ -66,17 +67,17 @@ export default function Compliance() {
           <Overview docs={docs} self={self} firstName={user.name.split(' ')[0]!} />
         </TabsContent>
         <TabsContent value="documents">
-          <EmployeeDocs docs={docs} employees={scope} self={self} user={user} onAdd={(d) => setAdded((p) => [d, ...p])} />
+          <EmployeeDocs docs={docs} employees={scope} self={self} user={user} onSaved={upsert} />
         </TabsContent>
         <TabsContent value="alerts">
-          <ExpiryAlerts docs={docs} self={self} />
+          <ExpiryAlerts docs={docs} self={self} onSaved={upsert} />
         </TabsContent>
         <TabsContent value="policies">
-          <PolicyUpdates policies={policies} headcount={employees.filter((e) => e.status !== 'Exited').length} self={self} />
+          <PolicyUpdates policies={policies} headcount={employees.filter((e) => e.status !== 'Exited').length} self={self} onChanged={reloadPolicies} />
         </TabsContent>
         {!self && (
           <TabsContent value="audit">
-            <AuditFiles employees={scope} docs={docs} department={department} />
+            <AuditFiles employees={scope} docs={docs} department={department} onSaved={upsert} />
           </TabsContent>
         )}
       </Tabs>

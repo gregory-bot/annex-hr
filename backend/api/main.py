@@ -15,6 +15,7 @@ from fastapi import APIRouter, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from . import errors, routers
+from .automations import start_scheduler, stop_scheduler
 from .config import settings
 from .db import SCHEMA, pool, query
 
@@ -30,7 +31,9 @@ async def lifespan(_: FastAPI):
         log.info("✓ Connected to %s/%s (schema %s)", settings.DB_HOST, settings.DB_NAME, SCHEMA)
     except Exception as exc:  # noqa: BLE001 — the API still starts; /api/health reports the problem
         log.error("✖ Database unreachable: %s", exc)
+    start_scheduler()  # scheduled reminders & alerts (AUTOMATIONS_ENABLED=false turns it off)
     yield
+    await stop_scheduler()
     pool.close()
 
 

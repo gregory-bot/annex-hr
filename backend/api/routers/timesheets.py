@@ -1,7 +1,8 @@
-"""Weekly timesheets: upsert while Draft/Rejected, submit, and leader decisions."""
+"""Weekly timesheets: upsert while Draft/Rejected, submit, leader decisions and manager reminders."""
 
 from __future__ import annotations
 
+import logging
 import re
 from typing import Any, Literal, Optional
 
@@ -9,21 +10,40 @@ from fastapi import APIRouter, Body, Depends, Request
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from ..audit import audit
-from ..db import query, query_one, tx
+from ..db import iso, query, query_one, tx
+from ..demo import is_demo_workspace
+from ..email.service import send_email
+from ..email.templates_time_leave import timesheet_reminder
 from ..errors import bad_request, forbidden, parse
 from ..repository import owned, to_timesheet
 from ..roles import is_leader
 from ..security import AuthContext, require_auth
 
 router = APIRouter()
+log = logging.getLogger("annex.timesheets")
+
+#: Pending timesheets older than this (since submission) trigger a manager reminder.
+REMIND_AFTER_DAYS = 3
 
 ISO_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 
-def sheet(sheet_id: str) -> dict[str, Any]:
-    t = query_one("SELECT * FROM timesheets WHERE id = $1", [sheet_id])
-    entries = query("SELECT * FROM timesheet_entries WHERE timesheet_id = $1 ORDER BY position", [sheet_id])
-    return to_timesheet(t, entries)  # type: ignore[arg-type]
+def to_sheet_out(t: dict[str, Any], entries: list[dict[str, Any]] | None) -> dict[str, Any]:
+    """The shared timesheet shape plus review details."""
+    return {
+        **to_timesheet(t, entries),
+        "comment": t.get("comment"),
+        "submittedAt": iso(t["submitted_at"]) if t.get("submitted_at") else None,
+        "decidedAt": iso(t["approved_at"]) if t.get("approved_at") else None,
+        "decidedBy": t.get("approved_by"),
+        "lastRemindedAt": iso(t["last_reminded_at"]) if t.get("last_reminded_at") else None,
+    }
+
+
+def sheet(sheet_id: str, db=None) -> dict[str, Any]:
+    t = query_one("SELECT * FROM timesheets WHERE id = $1", [sheet_id], db)
+    entries = query("SELECT * FROM timesheet_entries WHERE timesheet_id = $1 ORDER BY position", [sheet_id], db)
+    return to_sheet_out(t, entries)  # type: ignore[arg-type]
 
 
 def can_approve(role: str) -> bool:
@@ -38,7 +58,7 @@ def list_timesheets(request: Request, me: AuthContext = Depends(require_auth)):
        FROM timesheets t WHERE t.workspace_id = $1 AND ($2::text IS NULL OR t.employee_id = $2) ORDER BY t.week_start DESC""",
         [me.workspaceId, None if all_ else me.employeeId],
     )
-    return [to_timesheet(r, r["entries"]) for r in rows]
+    return [to_sheet_out(r, r["entries"]) for r in rows]
 
 
 class Entry(BaseModel):
@@ -94,19 +114,35 @@ def upsert_week(week: str, body: Any = Body(default={}), me: AuthContext = Depen
                 [tid, e.project, e.billable, e.hours, i],
                 db,
             )
-    return sheet(tid)
+        return sheet(tid, db)
 
 
 @router.post("/timesheets/{id}/submit")
 def submit(id: str, request: Request, me: AuthContext = Depends(require_auth)):
-    t = owned("timesheets", id, me.workspaceId, "Timesheet")
-    if t["employee_id"] != me.employeeId:
-        raise forbidden()
-    if t["status"] not in ("Draft", "Rejected"):
-        raise bad_request("Already submitted")
-    query("UPDATE timesheets SET status = 'Pending' WHERE id = $1", [t["id"]])
-    audit(request, me, "timesheet.submitted", "timesheet", t["id"])
-    return sheet(t["id"])
+    with tx() as db:
+        t = owned("timesheets", id, me.workspaceId, "Timesheet", db)
+        if t["employee_id"] != me.employeeId:
+            raise forbidden()
+        if t["status"] not in ("Draft", "Rejected"):
+            raise bad_request("Already submitted")
+        hours = query_one("SELECT COALESCE(sum(h), 0) AS total FROM timesheet_entries, unnest(hours) AS h WHERE timesheet_id = $1", [id], db)
+        if not hours or float(hours["total"]) <= 0:
+            raise bad_request("Log some hours before submitting")
+        query("UPDATE timesheets SET status = 'Pending', submitted_at = now(), comment = NULL WHERE id = $1", [t["id"]], db)
+        emp = query_one("SELECT name, manager_id FROM employees WHERE id = $1", [me.employeeId], db)
+        query(
+            "INSERT INTO notifications (workspace_id, recipient_id, type, title, body, href, audience) VALUES ($1, $2, 'approval', $3, $4, '/app/timesheets', $5)",
+            [
+                me.workspaceId,
+                emp["manager_id"],  # type: ignore[index]
+                f"{emp['name']} submitted a timesheet for the week of {t['week_start']}",  # type: ignore[index]
+                "Review the hours and approve or return it.",
+                "all" if emp["manager_id"] else "admins",  # type: ignore[index]
+            ],
+            db,
+        )
+        audit(request, me, "timesheet.submitted", "timesheet", t["id"], None, db)
+        return sheet(t["id"], db)
 
 
 class DecisionIn(BaseModel):
@@ -115,18 +151,94 @@ class DecisionIn(BaseModel):
     decision: Literal["approve", "reject"]
     comment: Optional[str] = Field(default=None, max_length=500)
 
+    @field_validator("comment", mode="before")
+    @classmethod
+    def _t(cls, v: Any) -> Any:
+        return (v.strip() or None) if isinstance(v, str) else v
+
 
 @router.post("/timesheets/{id}/decision")
 def decide(id: str, request: Request, body: Any = Body(default={}), me: AuthContext = Depends(require_auth)):
     if not can_approve(me.role):
         raise forbidden()
     b = parse(DecisionIn, body)
-    t = owned("timesheets", id, me.workspaceId, "Timesheet")
-    if t["status"] != "Pending":
-        raise bad_request("Only pending timesheets can be decided")
-    query(
-        "UPDATE timesheets SET status = $2, approved_by = $3, approved_at = now(), comment = $4 WHERE id = $1",
-        [t["id"], "Approved" if b.decision == "approve" else "Rejected", me.employeeId, b.comment],
-    )
-    audit(request, me, f"timesheet.{b.decision}", "timesheet", t["id"])
-    return sheet(t["id"])
+    with tx() as db:
+        t = owned("timesheets", id, me.workspaceId, "Timesheet", db)
+        if t["employee_id"] == me.employeeId:
+            raise forbidden("You cannot approve your own timesheet")
+        if t["status"] != "Pending":
+            raise bad_request("Only pending timesheets can be decided")
+        status = "Approved" if b.decision == "approve" else "Rejected"
+        query(
+            "UPDATE timesheets SET status = $2, approved_by = $3, approved_at = now(), comment = $4 WHERE id = $1",
+            [t["id"], status, me.employeeId, b.comment],
+            db,
+        )
+        query(
+            "INSERT INTO notifications (workspace_id, recipient_id, type, title, body, href) VALUES ($1, $2, 'approval', $3, $4, '/app/timesheets')",
+            [
+                me.workspaceId,
+                t["employee_id"],
+                f"Your timesheet for the week of {t['week_start']} was {'approved' if status == 'Approved' else 'returned for changes'}",
+                b.comment or ("Approved hours flow to invoicing." if status == "Approved" else "Update the hours and submit again."),
+            ],
+            db,
+        )
+        audit(request, me, f"timesheet.{b.decision}", "timesheet", t["id"], {"comment": b.comment} if b.comment else None, db)
+        return sheet(t["id"], db)
+
+
+class RemindIn(BaseModel):
+    model_config = ConfigDict(strict=True)
+
+    managerId: Optional[str] = None
+
+
+@router.post("/timesheets/reminders")
+def send_reminders(request: Request, body: Any = Body(default={}), me: AuthContext = Depends(require_auth)):
+    """Nudges each manager (in-app + email) with timesheets pending for more than 3 days."""
+    if not can_approve(me.role):
+        raise forbidden()
+    b = parse(RemindIn, body if body is not None else {})
+    with tx() as db:
+        rows = query(
+            f"""SELECT t.id, t.week_start, c.name AS consultant, m.id AS manager_id, m.name AS manager_name, m.email AS manager_email
+             FROM timesheets t JOIN employees c ON c.id = t.employee_id JOIN employees m ON m.id = c.manager_id
+            WHERE t.workspace_id = $1 AND t.status = 'Pending' AND m.status <> 'Exited'
+              AND COALESCE(t.submitted_at, (t.week_start + 5)::timestamptz) < now() - interval '{REMIND_AFTER_DAYS} days'
+              AND ($2::text IS NULL OR m.id = $2)
+            ORDER BY t.week_start""",
+            [me.workspaceId, b.managerId],
+            db,
+        )
+        ws = query_one("SELECT name FROM workspaces WHERE id = $1", [me.workspaceId], db)
+        by_manager: dict[str, list[dict[str, Any]]] = {}
+        for r in rows:
+            by_manager.setdefault(r["manager_id"], []).append(r)
+        for mid, items in by_manager.items():
+            n = len(items)
+            query(
+                "INSERT INTO notifications (workspace_id, recipient_id, type, title, body, href) VALUES ($1, $2, 'approval', $3, $4, '/app/timesheets')",
+                [me.workspaceId, mid, f"{n} timesheet{'' if n == 1 else 's'} waiting for your approval",
+                 "Pending for more than 3 days: " + ", ".join(sorted({i["consultant"] for i in items}))],
+                db,
+            )
+        if rows:
+            query("UPDATE timesheets SET last_reminded_at = now() WHERE id = ANY($1)", [[r["id"] for r in rows]], db)
+        audit(request, me, "timesheet.reminders_sent", "workspace", me.workspaceId, {"managers": len(by_manager), "timesheets": len(rows)}, db)
+
+    # Email after the transaction commits; a failed email never undoes the in-app reminder.
+    emailed = 0
+    demo = is_demo_workspace(me.workspaceId)
+    for items in by_manager.values():
+        m = items[0]
+        if demo or not m["manager_email"]:
+            continue  # seeded demo addresses are not real inboxes
+        msg = timesheet_reminder(m["manager_email"], m["manager_name"], ws["name"] if ws else "Annex HR", [(i["consultant"], i["week_start"]) for i in items])  # type: ignore[index]
+        if send_email(msg, required=False) not in ("failed",):
+            emailed += 1
+    return {
+        "reminded": [{"managerId": mid, "name": items[0]["manager_name"], "count": len(items)} for mid, items in by_manager.items()],
+        "timesheets": len(rows),
+        "emailed": emailed,
+    }

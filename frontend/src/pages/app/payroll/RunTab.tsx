@@ -3,7 +3,8 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { Check, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useWorkspace } from '@/context/auth'
-import type { Employee } from '@/data/types'
+import type { PayrollRun } from '@/data/types'
+import { api, errorMessage, USE_MOCK_API } from '@/lib/api'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -20,7 +21,8 @@ import { SearchInput } from '@/components/shared/SearchInput'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { SuccessCheck } from '@/components/shared/SuccessCheck'
 import { cn, formatKES } from '@/lib/utils'
-import { bonusFor, computePayslip, payrollEligible, type Payslip } from './calc'
+import { bonusFor, computePayslip, payrollEligible } from './calc'
+import { useRemote, type PayLine, type RunLines } from './api'
 
 const GEN_STEPS = [
   'Collecting attendance & leave',
@@ -32,16 +34,21 @@ const GEN_STEPS = [
   'Ready for review',
 ]
 
-type Row = Payslip & { employee: Employee }
+const PERIODS = ['October 2026', 'November 2026', 'December 2026']
 
-export function RunTab() {
-  const { employees, department, payrollRuns } = useWorkspace()
-  const [period, setPeriod] = useState(payrollRuns[0]?.period ?? 'October 2026')
-  const [status, setStatus] = useState<string>(payrollRuns[0]?.status ?? 'Draft')
+type Row = PayLine
+
+export function RunTab({ runs, setRuns }: { runs: PayrollRun[]; setRuns: React.Dispatch<React.SetStateAction<PayrollRun[]>> }) {
+  const { employees, department } = useWorkspace()
+  const [runId, setRunId] = useState<string | undefined>(runs[0]?.id)
+  const run = runs.find((r) => r.id === runId) ?? runs[0]
+  const [mockPeriod, setMockPeriod] = useState(runs[0]?.period ?? 'October 2026')
   const [withBonuses, setWithBonuses] = useState(true)
   const [open, setOpen] = useState(false)
-  const [genPeriod, setGenPeriod] = useState('October 2026')
+  const [genPeriod, setGenPeriod] = useState(PERIODS.find((p) => !runs.some((r) => r.period === p)) ?? PERIODS[0]!)
   const [step, setStep] = useState(-1)
+  const [generated, setGenerated] = useState<PayrollRun | null>(null)
+  const [genError, setGenError] = useState<string | null>(null)
   const [query, setQuery] = useState('')
   const [selected, setSelected] = useState<Row | null>(null)
   const timer = useRef<number | null>(null)
@@ -50,16 +57,25 @@ export function RunTab() {
     if (timer.current) window.clearInterval(timer.current)
   }, [])
 
-  const rows: Row[] = useMemo(
+  const remote = useRemote<RunLines>(run && !USE_MOCK_API ? `/payroll-runs/${run.id}/lines` : null)
+
+  const mockRows: Row[] = useMemo(
     () =>
       employees.filter(payrollEligible).map((e) => ({
         ...computePayslip(e, withBonuses ? bonusFor(e) : 0),
-        employee: e,
+        name: e.name,
+        title: e.title,
+        employeeNo: e.employeeNo,
+        kraPin: e.kraPin,
+        departmentId: e.departmentId,
       })),
     [employees, withBonuses],
   )
+  const rows: Row[] = USE_MOCK_API ? mockRows : remote.data?.lines ?? []
+  const period = USE_MOCK_API ? mockPeriod : run?.period ?? '—'
+  const status = USE_MOCK_API ? (runs.find((r) => r.period === mockPeriod)?.status ?? 'Draft') : run?.status ?? 'Draft'
 
-  const filtered = rows.filter((r) => !query || r.employee.name.toLowerCase().includes(query.toLowerCase()))
+  const filtered = rows.filter((r) => !query || r.name.toLowerCase().includes(query.toLowerCase()))
   const totals = rows.reduce(
     (t, r) => ({ gross: t.gross + r.gross, paye: t.paye + r.paye, statutory: t.statutory + r.shif + r.nssf + r.housingLevy, bonus: t.bonus + r.bonus, net: t.net + r.net }),
     { gross: 0, paye: 0, statutory: 0, bonus: 0, net: 0 },
@@ -67,6 +83,21 @@ export function RunTab() {
 
   const startGeneration = () => {
     setStep(0)
+    setGenerated(null)
+    setGenError(null)
+    if (!USE_MOCK_API) {
+      // The server freezes every payslip line (and any approved bonus cycle queued for payroll).
+      api
+        .post<PayrollRun>('/payroll-runs', { period: genPeriod })
+        .then(setGenerated)
+        .catch((err) => {
+          setGenError(errorMessage(err))
+          if (timer.current) window.clearInterval(timer.current)
+          timer.current = null
+          setStep(-1)
+          toast.error('Payroll not generated', { description: errorMessage(err) })
+        })
+    }
     let s = 0
     timer.current = window.setInterval(() => {
       s++
@@ -79,12 +110,17 @@ export function RunTab() {
   }
 
   const finishGeneration = () => {
-    setPeriod(genPeriod)
-    setStatus('Draft')
-    setWithBonuses(genPeriod.startsWith('September') || genPeriod.startsWith('December'))
+    if (!USE_MOCK_API && generated) {
+      setRuns((rs) => [generated, ...rs.filter((r) => r.id !== generated.id && r.period !== generated.period)])
+      setRunId(generated.id)
+      toast.success(`${generated.period} submitted for approval`, { description: `${generated.employees} payslips calculated · waiting for Finance sign-off.` })
+    } else {
+      setMockPeriod(genPeriod)
+      setWithBonuses(genPeriod.startsWith('September') || genPeriod.startsWith('December'))
+      toast.success(`${genPeriod} draft ready`, { description: `${rows.length} payslips calculated. Review and submit for approval.` })
+    }
     setOpen(false)
     setStep(-1)
-    toast.success(`${genPeriod} draft ready`, { description: `${rows.length} payslips calculated. Review and submit for approval.` })
   }
 
   const k = (v: number) => <span className="tabular">{formatKES(v).replace('KES ', '')}</span>
@@ -93,8 +129,8 @@ export function RunTab() {
     {
       key: 'employee',
       header: 'Employee',
-      cell: (r) => <PersonCell name={r.employee.name} sub={department(r.employee.departmentId)?.name} />,
-      sortValue: (r) => r.employee.name,
+      cell: (r) => <PersonCell name={r.name} sub={department(r.departmentId)?.name} />,
+      sortValue: (r) => r.name,
       className: 'min-w-52',
     },
     { key: 'basic', header: 'Basic', cell: (r) => k(r.basic), sortValue: (r) => r.basic, hideOnMobile: true },
@@ -118,7 +154,7 @@ export function RunTab() {
     { key: 'net', header: 'Net pay', cell: (r) => <span className="font-semibold">{k(r.net)}</span>, sortValue: (r) => r.net },
   ]
 
-  const done = step >= GEN_STEPS.length - 1
+  const done = step >= GEN_STEPS.length - 1 && (USE_MOCK_API || !!generated)
 
   return (
     <div className="grid grid-cols-1 gap-4">
@@ -130,13 +166,20 @@ export function RunTab() {
               <StatusBadge status={status} />
             </div>
             <p className="mt-1 text-sm text-muted-foreground">
-              {rows.length} employees · consultants are paid separately from timesheets · all amounts in KES
+              {remote.loading ? 'Loading payslips…' : `${rows.length} employees`} · consultants are paid separately from timesheets · all amounts in KES
             </p>
+            {remote.data?.estimated && (
+              <p className="mt-1 text-xs text-muted-foreground">Imported run — lines are recalculated from current salaries. Runs generated in Annex HR keep their original figures.</p>
+            )}
+            {remote.error && <p className="mt-1 text-xs text-danger">{remote.error}</p>}
           </div>
           <div className="flex flex-wrap gap-2">
+            {!USE_MOCK_API && runs.length > 1 && (
+              <SimpleSelect value={run?.id} onValueChange={setRunId} options={runs.map((r) => ({ value: r.id, label: r.period }))} className="h-9 w-44" />
+            )}
             <ExportMenu
               filename={`payroll-${period.toLowerCase().replace(' ', '-')}`}
-              rows={rows.map((r) => ({ Employee: r.employee.name, 'KRA PIN': r.employee.kraPin, Basic: r.basic, Allowances: r.allowances, Gross: r.gross, PAYE: r.paye, SHIF: r.shif, NSSF: r.nssf, 'Housing Levy': r.housingLevy, Bonus: r.bonus, Net: r.net }))}
+              rows={rows.map((r) => ({ Employee: r.name, 'KRA PIN': r.kraPin, Basic: r.basic, Allowances: r.allowances, Gross: r.gross, PAYE: r.paye, SHIF: r.shif, NSSF: r.nssf, 'Housing Levy': r.housingLevy, Bonus: r.bonus, Net: r.net }))}
             />
             <Button onClick={() => setOpen(true)}>
               Generate payroll
@@ -166,7 +209,7 @@ export function RunTab() {
 
       <DataTable rows={filtered} columns={columns} rowKey={(r) => r.employeeId} onRowClick={setSelected} pageSize={12} />
 
-      <PayslipSheet row={selected} period={period} onClose={() => setSelected(null)} deptName={selected ? department(selected.employee.departmentId)?.name : undefined} />
+      <PayslipSheet row={selected} period={period} onClose={() => setSelected(null)} deptName={selected ? department(selected.departmentId)?.name : undefined} />
 
       <Dialog
         open={open}
@@ -184,8 +227,12 @@ export function RunTab() {
           {step < 0 ? (
             <div className="grid grid-cols-1 gap-2">
               <Label>Pay period</Label>
-              <SimpleSelect value={genPeriod} onValueChange={setGenPeriod} options={['October 2026', 'September 2026', 'November 2026']} />
-              <p className="text-xs text-muted-foreground">{rows.length} eligible employees · pay date 28th · cut-off 20th</p>
+              <SimpleSelect value={genPeriod} onValueChange={setGenPeriod} options={PERIODS} />
+              <p className="text-xs text-muted-foreground">Pay date 28th · cut-off 20th · approved bonus cycles queued for payroll are included</p>
+              {runs.some((r) => r.period === genPeriod) && (
+                <p className="text-xs text-warning">A {genPeriod} run already exists. It is recalculated if nobody has signed it yet.</p>
+              )}
+              {genError && <p className="text-xs text-danger">{genError}</p>}
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-4">
@@ -216,7 +263,9 @@ export function RunTab() {
                     <SuccessCheck size={52} />
                     <div className="mt-2 font-semibold">{genPeriod} draft ready</div>
                     <div className="mt-1 text-sm text-muted-foreground">
-                      {rows.length} payslips · gross {formatKES(totals.gross, { compact: true })} · net {formatKES(totals.net, { compact: true })}
+                      {generated
+                        ? `${generated.employees} payslips · gross ${formatKES(generated.gross, { compact: true })} · net ${formatKES(generated.net, { compact: true })}`
+                        : `${rows.length} payslips · gross ${formatKES(totals.gross, { compact: true })} · net ${formatKES(totals.net, { compact: true })}`}
                     </div>
                   </motion.div>
                 )}
@@ -268,18 +317,18 @@ function PayslipSheet({ row, period, onClose, deptName }: { row: Row | null; per
               <Badge variant="soft" className="mb-2">
                 Payslip · {period}
               </Badge>
-              <SheetTitle>{row.employee.name}</SheetTitle>
+              <SheetTitle>{row.name}</SheetTitle>
               <SheetDescription>
-                {row.employee.title} · {deptName}
+                {row.title} · {deptName}
               </SheetDescription>
               <dl className="mt-4 grid grid-cols-2 gap-3 text-xs">
                 <div>
                   <dt className="text-muted-foreground">Employee no.</dt>
-                  <dd className="mt-0.5 font-medium">{row.employee.employeeNo}</dd>
+                  <dd className="mt-0.5 font-medium">{row.employeeNo}</dd>
                 </div>
                 <div>
                   <dt className="text-muted-foreground">KRA PIN</dt>
-                  <dd className="mt-0.5 font-medium">{row.employee.kraPin}</dd>
+                  <dd className="mt-0.5 font-medium">{row.kraPin}</dd>
                 </div>
                 <div>
                   <dt className="text-muted-foreground">Pay date</dt>
@@ -298,7 +347,7 @@ function PayslipSheet({ row, period, onClose, deptName }: { row: Row | null; per
                 <Line label="House allowance" value={row.house} />
                 <Line label="Transport allowance" value={row.transport} />
                 <Line label="Airtime allowance" value={row.airtime} />
-                {row.bonus > 0 && <Line label="Q3 performance bonus" value={row.bonus} />}
+                {row.bonus > 0 && <Line label="Performance bonus" value={row.bonus} />}
                 <Separator className="my-1.5" />
                 <Line label="Gross pay" value={row.gross} strong />
               </div>
@@ -325,7 +374,7 @@ function PayslipSheet({ row, period, onClose, deptName }: { row: Row | null; per
               </Button>
               <Button
                 className="flex-1"
-                onClick={() => toast.success('Payslip downloaded', { description: `payslip-${row.employee.employeeNo}-${period.toLowerCase().replace(' ', '-')}.pdf` })}
+                onClick={() => toast.success('Payslip downloaded', { description: `payslip-${row.employeeNo}-${period.toLowerCase().replace(' ', '-')}.pdf` })}
               >
                 Download payslip
               </Button>

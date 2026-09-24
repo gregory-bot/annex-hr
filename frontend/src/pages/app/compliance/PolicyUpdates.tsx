@@ -2,15 +2,31 @@ import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
-import type { Policy } from '@/data/types'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { Section } from '@/components/shared/Section'
+import { errorMessage, USE_MOCK_API } from '@/lib/api'
 import { formatDate } from '@/lib/utils'
+import { policyApi, type PolicyItem } from './api'
 
-export function PolicyUpdates({ policies, headcount, self }: { policies: Policy[]; headcount: number; self: boolean }) {
+export function PolicyUpdates({ policies, headcount, self, onChanged }: { policies: PolicyItem[]; headcount: number; self: boolean; onChanged: () => void }) {
   const [reminded, setReminded] = useState<Set<string>>(new Set())
+  const [busy, setBusy] = useState<string | null>(null)
+
+  const remind = async (p: PolicyItem) => {
+    setBusy(p.id)
+    try {
+      const n = USE_MOCK_API ? Math.round(((100 - p.acknowledged) / 100) * headcount) : (await policyApi.remind(p.id)).reminded
+      setReminded((s) => new Set(s).add(p.id))
+      toast.success(n ? `Reminder sent to ${n} non-signer${n === 1 ? '' : 's'} of ${p.title}` : `Everyone has signed ${p.title}`)
+      onChanged()
+    } catch (err) {
+      toast.error(errorMessage(err))
+    } finally {
+      setBusy(null)
+    }
+  }
   const sorted = [...policies].sort((a, b) => b.updated.localeCompare(a.updated))
 
   return (
@@ -41,6 +57,11 @@ export function PolicyUpdates({ policies, headcount, self }: { policies: Policy[
                   <span className="font-medium">{p.title}</span>
                   <Badge variant="muted">{p.version}</Badge>
                   {p.mandatory && <Badge variant="soft">Mandatory</Badge>}
+                  {self && p.myAcknowledgement && (
+                    <Badge variant="success" dot>
+                      Signed
+                    </Badge>
+                  )}
                 </div>
                 <div className="mt-0.5 truncate text-xs text-muted-foreground">
                   Updated {formatDate(p.updated)} · {p.history[0]?.note}
@@ -57,13 +78,10 @@ export function PolicyUpdates({ policies, headcount, self }: { policies: Policy[
                 <Button
                   size="sm"
                   variant={reminded.has(p.id) ? 'secondary' : 'outline'}
-                  disabled={nonSigners === 0 || reminded.has(p.id)}
-                  onClick={() => {
-                    setReminded((s) => new Set(s).add(p.id))
-                    toast.success(`Reminder sent to ${nonSigners} non-signers of ${p.title}`)
-                  }}
+                  disabled={nonSigners === 0 || reminded.has(p.id) || busy === p.id}
+                  onClick={() => void remind(p)}
                 >
-                  {nonSigners === 0 ? 'All signed' : reminded.has(p.id) ? 'Reminded' : `Remind ${nonSigners} non-signers`}
+                  {nonSigners === 0 ? 'All signed' : reminded.has(p.id) ? 'Reminded' : 'Remind non-signers'}
                 </Button>
               )}
             </motion.li>

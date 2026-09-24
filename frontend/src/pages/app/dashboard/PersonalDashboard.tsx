@@ -15,6 +15,7 @@ import { StatisticsCard, TimesheetCard, useHourStats } from '../attendance/Times
 import { useClock } from '../attendance/workday'
 import { personalEvents } from './events'
 import { UpcomingEvents } from './widgets'
+import { MyExitInterview } from '../offboarding/ExitInterview'
 
 const fade = (i: number) => ({ initial: { opacity: 0, y: 8 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.35, delay: 0.04 + i * 0.04 } })
 
@@ -54,6 +55,8 @@ export function PersonalDashboard() {
 
   return (
     <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+      {/* Shown only while the signed-in person has an active offboarding. */}
+      <MyExitInterview company={workspace.name} className="md:col-span-2 lg:col-span-3" />
       <motion.div {...fade(0)} className="min-w-0 md:col-span-2 lg:col-span-3">
         <div className="relative h-full overflow-hidden rounded-xl bg-gradient-to-br from-primary to-[#8f0d17] p-5 text-white sm:p-6">
           <div className="absolute -right-10 -top-10 size-44 rounded-full bg-white/10" />

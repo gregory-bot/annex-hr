@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useWorkspace } from '@/context/auth'
 import type { PayrollRun } from '@/data/types'
 import { isAdminLike } from '@/lib/rbac'
+import { api, USE_MOCK_API } from '@/lib/api'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -32,6 +33,20 @@ export default function Payroll() {
 function PayrollPage() {
   const { role, workspace, payrollRuns } = useWorkspace()
   const [runs, setRuns] = useState<PayrollRun[]>(payrollRuns)
+  const canSeePay = isAdminLike(role) || role === 'finance'
+
+  // The bootstrap snapshot can be stale after runs are generated or approved elsewhere.
+  useEffect(() => {
+    if (USE_MOCK_API || !canSeePay) return
+    let cancelled = false
+    api
+      .get<PayrollRun[]>('/payroll-runs')
+      .then((fresh) => !cancelled && setRuns(fresh))
+      .catch(() => undefined)
+    return () => {
+      cancelled = true
+    }
+  }, [canSeePay])
   const [params, setParams] = useSearchParams()
   const tab = TABS.some((t) => t.value === params.get('tab')) ? params.get('tab')! : 'overview'
   const setTab = (v: string) =>
@@ -45,7 +60,7 @@ function PayrollPage() {
       { replace: true },
     )
 
-  if (!isAdminLike(role) && role !== 'finance') {
+  if (!canSeePay) {
     return (
       <>
         <PageHeader title="Payroll" />
@@ -86,7 +101,7 @@ function PayrollPage() {
           )}
         </TabsContent>
         <TabsContent value="run">
-          <RunTab />
+          <RunTab runs={runs} setRuns={setRuns} />
         </TabsContent>
         <TabsContent value="consultants">
           <ConsultantsTab />

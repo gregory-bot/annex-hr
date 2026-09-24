@@ -1,4 +1,4 @@
-import { useId, useMemo, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
@@ -6,7 +6,7 @@ import { toast } from 'sonner'
 import { api, errorMessage, USE_MOCK_API } from '@/lib/api'
 import type { LeaveRequest, LeaveType } from '@/data/types'
 import { useWorkspace } from '@/context/auth'
-import { isLeader } from '@/lib/rbac'
+import { isAdminLike, isLeader } from '@/lib/rbac'
 import { cn, daysUntil, formatDate, TODAY } from '@/lib/utils'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { Section } from '@/components/shared/Section'
@@ -24,6 +24,8 @@ import { Tip } from '@/components/ui/tooltip'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { ChartTooltip, Legend, SERIES, axisProps, gridProps } from '@/components/charts/ChartKit'
 import { ApplyLeaveDialog } from './leave/ApplyLeaveDialog'
+import { HolidayManager, PolicyEditor } from './leave/Admin'
+import { handoverUrl, type BalancesResponse, type LeaveRow } from './leave/api'
 import { TeamCalendar } from './leave/TeamCalendar'
 import { ANNUAL_ACCRUAL, LEAVE_TYPES, approveStep, leaveMeta, needsCEO, overlaps, stageOf, type Stage } from './leave/utils'
 
@@ -61,12 +63,35 @@ export default function Leave() {
   const leader = isLeader(role)
   const [params, setParams] = useSearchParams()
 
-  const [requests, setRequests] = useState<LeaveRequest[]>(() => !USE_MOCK_API ? ws.leaveRequests : [
+  const [requests, setRequests] = useState<LeaveRow[]>(() => !USE_MOCK_API ? ws.leaveRequests : [
     { id: 'lv-me-1', employeeId: user.id, type: 'Annual', start: '2026-07-13', end: '2026-07-17', days: 5, reason: 'Family trip to Diani', status: 'Approved', stage: 'Complete', submitted: '2026-06-22', handoverNotes: true },
     { id: 'lv-me-2', employeeId: user.id, type: 'Sick', start: '2026-08-04', end: '2026-08-05', days: 2, reason: 'Flu — doctor’s note attached', status: 'Approved', stage: 'Complete', submitted: '2026-08-06' },
     { id: 'lv-me-3', employeeId: user.id, type: 'Annual', start: '2026-10-12', end: '2026-10-14', days: 3, reason: 'Graduation ceremony in Eldoret', status: 'Pending', stage: 'HR', submitted: '2026-09-18', handoverNotes: true },
     ...ws.leaveRequests.filter((r) => r.employeeId !== user.id),
   ])
+
+  const [server, setServer] = useState<BalancesResponse | null>(null)
+  const loadBalances = useCallback(() => {
+    if (USE_MOCK_API) return
+    api
+      .get<BalancesResponse>('/leave/balances/me')
+      .then(setServer)
+      .catch((err) => toast.error('Could not load leave balances', { description: errorMessage(err) }))
+  }, [])
+
+  // Live mode: requests with handover files and HR alerts, and balances computed by the server.
+  useEffect(() => {
+    if (USE_MOCK_API) return
+    let live = true
+    api
+      .get<LeaveRow[]>('/leave-requests')
+      .then((rows) => live && setRequests(rows))
+      .catch((err) => live && toast.error('Could not load leave requests', { description: errorMessage(err) }))
+    loadBalances()
+    return () => {
+      live = false
+    }
+  }, [loadBalances])
 
   const [applyOpen, setApplyOpen] = useState(() => params.get('apply') === '1')
   const rawTab = params.get('tab') ?? (leader ? 'approvals' : 'mine')
@@ -84,13 +109,37 @@ export default function Leave() {
   const localHolidays = useMemo(() => holidays.filter((h) => h.country === workspace.country), [holidays, workspace.country])
   const mine = requests.filter((r) => r.employeeId === user.id)
 
-  const balances = useMemo(() => {
+  const mockBalances = useMemo(() => {
     const used = { ...PRIOR_USED }
     mine.filter((r) => r.status === 'Approved').forEach((r) => (used[r.type] += r.days))
     const pending = { Annual: 0, Sick: 0, Maternity: 0, Paternity: 0, Compassionate: 0, Study: 0 } as Record<LeaveType, number>
     mine.filter((r) => r.status === 'Pending').forEach((r) => (pending[r.type] += r.days))
-    return LEAVE_TYPES.map((t) => ({ type: t, used: used[t], pending: pending[t], entitlement: leaveMeta[t].entitlement, remaining: Math.max(0, leaveMeta[t].entitlement - used[t] - pending[t]) }))
+    return LEAVE_TYPES.map((t) => ({
+      type: t,
+      used: used[t],
+      pending: pending[t],
+      entitlement: leaveMeta[t].entitlement,
+      remaining: Math.max(0, leaveMeta[t].entitlement - used[t] - pending[t]),
+      note: t === 'Annual' ? `${(ANNUAL_ACCRUAL * CURRENT_MONTH).toFixed(2)} accrued · 1.75/month` : leaveMeta[t].note,
+    }))
   }, [mine])
+  const balances = useMemo(
+    () =>
+      USE_MOCK_API || !server
+        ? mockBalances.map((b) => (USE_MOCK_API ? b : { ...b, used: 0, pending: 0, remaining: 0, note: 'Loading…' }))
+        : server.balances.map((b) => ({
+            type: b.type,
+            used: b.taken,
+            pending: b.pending,
+            entitlement: b.available,
+            remaining: b.remaining,
+            note:
+              b.accrual === 'monthly'
+                ? `${b.accrued} accrued${b.carriedOver ? ` + ${b.carriedOver} carried` : ''} · ${b.monthlyRate}/month`
+                : `${b.annualDays} days a year${b.remaining < 0 ? ' · over balance' : ''}`,
+          })),
+    [mockBalances, server],
+  )
   const remaining = Object.fromEntries(balances.map((b) => [b.type, b.remaining])) as Record<LeaveType, number>
 
   const colleagues = useMemo(
@@ -113,10 +162,10 @@ export default function Leave() {
   }, [requests, role, leader, employee, user.departmentId])
 
   /** Sends a decision to the API (real mode) and reconciles with the server's version of the request. */
-  const persistDecision = (r: LeaveRequest, decision: 'approve' | 'reject', optimistic: LeaveRequest) => {
+  const persistDecision = (r: LeaveRow, decision: 'approve' | 'reject', optimistic: LeaveRow) => {
     if (USE_MOCK_API) return
     api
-      .post<LeaveRequest>(`/leave-requests/${r.id}/decision`, { decision })
+      .post<LeaveRow>(`/leave-requests/${r.id}/decision`, { decision })
       .then((saved) => setRequests((prev) => prev.map((x) => (x.id === r.id ? saved : x))))
       .catch((err) => {
         setRequests((prev) => prev.map((x) => (x.id === r.id && x.stage === optimistic.stage && x.status === optimistic.status ? r : x)))
@@ -124,7 +173,7 @@ export default function Leave() {
       })
   }
 
-  const approve = (r: LeaveRequest) => {
+  const approve = (r: LeaveRow) => {
     const next = approveStep(r)
     setRequests((prev) => prev.map((x) => (x.id === r.id ? next : x)))
     persistDecision(r, 'approve', next)
@@ -132,14 +181,15 @@ export default function Leave() {
     if (next.status === 'Approved') toast.success(`${name}'s leave approved`, { description: `${r.days} days of ${r.type} leave · employee notified` })
     else toast.success(`Approved — sent to ${next.stage === 'HR' ? 'HR' : 'the CEO'}`, { description: `${name} · ${r.type} leave` })
   }
-  const decline = (r: LeaveRequest) => {
-    const next: LeaveRequest = { ...r, status: 'Rejected', stage: 'Complete' }
+  const decline = (r: LeaveRow) => {
+    const next: LeaveRow = { ...r, status: 'Rejected', stage: 'Complete' }
     setRequests((prev) => prev.map((x) => (x.id === r.id ? next : x)))
     persistDecision(r, 'reject', next)
     toast.error(`${employee(r.employeeId)?.name ?? 'Request'}'s leave declined`, { description: 'The employee has been notified with your comment.' })
   }
 
-  const hasAlert = (r: LeaveRequest) => {
+  const hasAlert = (r: LeaveRow): string | null => {
+    if (!USE_MOCK_API) return r.alerts?.length ? r.alerts.join(' · ') : null
     if (r.days > 10) return 'Long leave'
     const dept = employee(r.employeeId)?.departmentId
     const clash = requests.some((o) => o.id !== r.id && o.status !== 'Rejected' && employee(o.employeeId)?.departmentId === dept && overlaps(o, r))
@@ -166,14 +216,13 @@ export default function Leave() {
       <div className="-mx-4 mb-6 flex snap-x gap-3 overflow-x-auto px-4 pb-1 no-scrollbar sm:mx-0 sm:grid sm:grid-cols-3 sm:overflow-visible sm:px-0 xl:grid-cols-6">
         {balances.map((b, i) => {
           const meta = leaveMeta[b.type]
-          const pct = b.entitlement ? ((b.entitlement - b.remaining) / b.entitlement) * 100 : 0
+          const pct = b.entitlement ? Math.min(100, Math.max(0, ((b.entitlement - b.remaining) / b.entitlement) * 100)) : 0
           return (
             <motion.div
               key={b.type}
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.04 }}
-              whileHover={{ y: -2 }}
               className="w-[70vw] max-w-[240px] shrink-0 snap-start rounded-xl border bg-card p-4 shadow-[0_1px_2px_rgba(16,24,40,0.04)] sm:w-auto sm:max-w-none"
             >
               <div className="flex items-start justify-between gap-2">
@@ -191,7 +240,7 @@ export default function Leave() {
               <div className="mt-2 text-xs text-muted-foreground">
                 {b.used} used{b.pending ? ` · ${b.pending} pending` : ''}
               </div>
-              <div className="mt-0.5 truncate text-[11px] text-muted-foreground">{b.type === 'Annual' ? `${(ANNUAL_ACCRUAL * CURRENT_MONTH).toFixed(2)} accrued · 1.75/month` : meta.note}</div>
+              <div className="mt-0.5 truncate text-[11px] text-muted-foreground">{b.note}</div>
             </motion.div>
           )
         })}
@@ -221,13 +270,14 @@ export default function Leave() {
 
         {leader && (
           <TabsContent value="approvals">
-            <Kanban<LeaveRequest>
+            <Kanban<LeaveRow>
               columns={COLUMNS.map((c) => ({ ...c, items: scoped.filter((r) => stageOf(r) === c.id) }))}
               itemKey={(r) => r.id}
               renderCard={(r, col) => {
                 const e = employee(r.employeeId)
                 const alert = hasAlert(r)
                 const actionable = col === 'manager' || col === 'hr' || col === 'ceo'
+                const own = r.employeeId === user.id
                 return (
                   <div className="rounded-lg border bg-card p-3 shadow-sm">
                     <div className="flex items-start justify-between gap-2">
@@ -244,7 +294,15 @@ export default function Leave() {
                       <span className="font-semibold text-foreground tabular">{r.days}d</span>
                     </div>
                     <div className="mt-2 flex flex-wrap gap-1.5">
-                      {r.handoverNotes ? (
+                      {r.handoverFileId ? (
+                        <Tip label={`${r.handoverFileName ?? 'Handover notes'} · handover to ${employee(r.handoverTo)?.name ?? 'colleague'}`}>
+                          <a href={handoverUrl(r.id)} className="rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                            <Badge variant="muted" className="underline-offset-2 hover:underline">
+                              Download handover notes
+                            </Badge>
+                          </a>
+                        </Tip>
+                      ) : r.handoverNotes ? (
                         <Tip label={`Handover to ${employee(r.handoverTo)?.name ?? 'colleague'}`}>
                           <span>
                             <Badge variant="muted">
@@ -267,7 +325,8 @@ export default function Leave() {
                         </Tip>
                       )}
                     </div>
-                    {actionable && (
+                    {actionable && own && <div className="mt-3 text-xs text-muted-foreground">Your own request — another approver will decide.</div>}
+                    {actionable && !own && (
                       <div className="mt-3 grid grid-cols-2 gap-2">
                         <Button size="sm" variant="outline" onClick={() => decline(r)}>
                           Decline
@@ -304,6 +363,16 @@ export default function Leave() {
                           <div className="mt-0.5 text-xs text-muted-foreground">
                             {formatDate(r.start)} – {formatDate(r.end)} · {r.reason}
                           </div>
+                          {(r.handoverFileId || r.balanceWarning) && (
+                            <div className="mt-1.5 flex flex-wrap gap-1.5">
+                              {r.handoverFileId && (
+                                <a href={handoverUrl(r.id)} className="text-xs font-medium text-primary underline-offset-2 hover:underline">
+                                  {r.handoverFileName ?? 'Handover notes'}
+                                </a>
+                              )}
+                              {r.balanceWarning && <Badge variant="warning">Over balance · HR alerted</Badge>}
+                            </div>
+                          )}
                         </div>
                         <StatusBadge status={r.status} />
                       </div>
@@ -322,11 +391,15 @@ export default function Leave() {
         </TabsContent>
 
         <TabsContent value="holidays">
-          <HolidayCalendar holidays={holidays} />
+          {USE_MOCK_API ? <HolidayCalendar holidays={holidays} /> : <HolidayManager canEdit={isAdminLike(role)} defaultCountry={workspace.country} />}
         </TabsContent>
 
         <TabsContent value="accruals">
-          <Accruals used={balances[0]!.used} />
+          {USE_MOCK_API ? (
+            <Accruals used={balances[0]!.used} />
+          ) : (
+            <LiveAccruals data={server} admin={isAdminLike(role)} onPolicySaved={loadBalances} />
+          )}
         </TabsContent>
       </Tabs>
 
@@ -348,16 +421,25 @@ export default function Leave() {
         colleagues={colleagues}
         holidays={localHolidays}
         remaining={remaining}
-        onSubmit={(r) => {
-          setRequests((prev) => [r, ...prev])
-          if (USE_MOCK_API) return
-          api
-            .post<LeaveRequest>('/leave-requests', { type: r.type, start: r.start, end: r.end, reason: r.reason, handoverTo: r.handoverTo, handoverNotes: r.handoverNotes })
-            .then((saved) => setRequests((prev) => prev.map((x) => (x.id === r.id ? saved : x))))
-            .catch((err) => {
-              setRequests((prev) => prev.filter((x) => x.id !== r.id))
-              toast.error('Leave request not saved', { description: errorMessage(err) })
-            })
+        onSubmit={async (r) => {
+          if (USE_MOCK_API) {
+            setRequests((prev) => [r, ...prev])
+            return r
+          }
+          // Wait for the server: it recalculates working days and checks the balance.
+          const saved = await api.post<LeaveRow>('/leave-requests', {
+            type: r.type,
+            start: r.start,
+            end: r.end,
+            reason: r.reason,
+            handoverTo: r.handoverTo,
+            handoverNotes: r.handoverNotes,
+            handoverFileId: r.handoverFileId,
+          })
+          setRequests((prev) => [saved, ...prev])
+          loadBalances()
+          if (saved.balanceWarning) toast.warning('Over your balance', { description: 'Submitted — HR has been alerted to review it.' })
+          return saved
         }}
       />
     </div>
@@ -493,6 +575,78 @@ function Accruals({ used }: { used: number }) {
           </TableBody>
         </Table>
       </Section>
+    </div>
+  )
+}
+
+/** Accrual chart and policy from the server; HR admins can edit the policy. */
+function LiveAccruals({ data, admin, onPolicySaved }: { data: BalancesResponse | null; admin: boolean; onPolicySaved: () => void }) {
+  const id = useId().replace(/:/g, '')
+  if (!data) return <div className="rounded-xl border border-dashed py-12 text-center text-sm text-muted-foreground">Loading accruals…</div>
+  const annual = data.balances.find((b) => b.type === 'Annual')!
+  const series = [
+    { key: 'accrued', label: 'Accrued', color: SERIES[0] },
+    { key: 'taken', label: 'Taken', color: SERIES[1] },
+  ]
+  const expiry = annual.expiresMonthDay ? formatDate(`${data.year + 1}-${annual.expiresMonthDay}`, 'long') : null
+  const policy = [
+    { item: 'Annual entitlement', value: `${annual.annualDays} working days` },
+    { item: 'Accrual', value: annual.accrual === 'monthly' ? `${annual.monthlyRate} days per completed month` : 'Full entitlement at the start of the year' },
+    { item: 'Carry-over cap', value: annual.carryOverMax ? `${annual.carryOverMax} days into the next leave year` : 'No carry-over' },
+    { item: 'Carry-over expiry', value: annual.carryOverMax ? (expiry ? `${expiry} — unused days lapse` : 'Never expires') : '—' },
+    { item: 'Carried into ' + data.year, value: annual.carryOverLapsed ? `${annual.carriedOver} used · the rest lapsed` : `${annual.carriedOver} days` },
+    { item: 'Service start', value: formatDate(data.startDate, 'long') },
+  ]
+  return (
+    <div className="grid grid-cols-1 gap-4">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
+        <Section
+          className="lg:col-span-3"
+          title={`Annual leave accrual — ${data.year}`}
+          description={`${annual.accrued} days accrued to ${formatDate(data.asOf, 'short')} · ${annual.taken} taken · ${annual.remaining} remaining`}
+          action={<Legend items={series.map((s) => ({ label: s.label, color: s.color }))} />}
+        >
+          <ResponsiveContainer width="100%" height={260}>
+            <AreaChart data={data.annualSeries} margin={{ top: 8, right: 8, left: -4, bottom: 0 }}>
+              <defs>
+                {series.map((s) => (
+                  <linearGradient key={s.key} id={`${id}-${s.key}`} x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor={s.color} stopOpacity={0.2} />
+                    <stop offset="100%" stopColor={s.color} stopOpacity={0} />
+                  </linearGradient>
+                ))}
+              </defs>
+              <CartesianGrid {...gridProps} />
+              <XAxis dataKey="month" {...axisProps} />
+              <YAxis {...axisProps} width={40} />
+              <Tooltip content={<ChartTooltip valueFormatter={(v) => `${v} days`} />} cursor={{ stroke: 'var(--border)' }} />
+              {series.map((s) => (
+                <Area key={s.key} type="monotone" dataKey={s.key} name={s.label} stroke={s.color} strokeWidth={2} fill={`url(#${id}-${s.key})`} dot={false} connectNulls={false} activeDot={{ r: 4, stroke: 'var(--card)', strokeWidth: 2 }} />
+              ))}
+            </AreaChart>
+          </ResponsiveContainer>
+          <div className="mt-2 text-xs text-muted-foreground">Accrued after today is projected, assuming continued service.</div>
+        </Section>
+        <Section className="lg:col-span-2" title="Accrual policy" description="Employment Act 2007 defaults unless HR has changed them">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Rule</TableHead>
+                <TableHead>Setting</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {policy.map((p) => (
+                <TableRow key={p.item}>
+                  <TableCell className="px-3 text-muted-foreground">{p.item}</TableCell>
+                  <TableCell className="px-3 font-medium">{p.value}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </Section>
+      </div>
+      {admin && <PolicyEditor onSaved={onPolicySaved} />}
     </div>
   )
 }

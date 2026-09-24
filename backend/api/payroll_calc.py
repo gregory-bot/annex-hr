@@ -40,3 +40,45 @@ def statutory(gross: float) -> dict[str, int]:
         "housingLevy": js_round(housing_levy),
         "net": js_round(gross - paye - nssf - shif - housing_levy),
     }
+
+
+NSSF_TIER1_LIMIT = 8_000
+WHT_RATE = 0.05
+
+
+def _round_to(x: float, step: int) -> int:
+    return js_round(x / step) * step
+
+
+def payslip(package: float, bonus: float = 0) -> dict[str, int]:
+    """Splits the monthly package into basic + allowances (as the payslip shows it) and applies statutory deductions."""
+    airtime = 5_000 if package >= 300_000 else 2_000
+    transport = _round_to(package * 0.08, 500)
+    house = _round_to(package * 0.15, 500)
+    basic = js_round(package) - house - transport - airtime
+    gross = js_round(package + bonus)
+    s = statutory(gross)
+    tier1 = js_round(min(gross, NSSF_TIER1_LIMIT) * 0.06)
+    return {
+        "basic": basic,
+        "house": house,
+        "transport": transport,
+        "airtime": airtime,
+        "allowances": house + transport + airtime,
+        "bonus": js_round(bonus),
+        "gross": gross,
+        "nssfTier1": min(tier1, s["nssf"]),
+        "nssfTier2": max(0, s["nssf"] - tier1),
+        "nssf": s["nssf"],
+        "shif": s["shif"],
+        "housingLevy": s["housingLevy"],
+        "taxable": max(0, gross - s["nssf"] - s["shif"] - s["housingLevy"]),
+        "paye": s["paye"],
+        "totalDeductions": s["paye"] + s["nssf"] + s["shif"] + s["housingLevy"],
+        "net": gross - (s["paye"] + s["nssf"] + s["shif"] + s["housingLevy"]),
+    }
+
+
+def withholding(gross: float) -> int:
+    """5% withholding tax on consultants' professional fees."""
+    return js_round(gross * WHT_RATE)

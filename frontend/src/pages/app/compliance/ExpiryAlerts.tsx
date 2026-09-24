@@ -1,14 +1,15 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
+import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Checkbox } from '@/components/ui/checkbox'
-import { Switch } from '@/components/ui/switch'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { PersonCell } from '@/components/shared/PersonCell'
 import { Section } from '@/components/shared/Section'
+import { errorMessage, USE_MOCK_API } from '@/lib/api'
 import { cn, daysUntil, formatDate } from '@/lib/utils'
+import { complianceApi, type ComplianceItem } from './api'
 import { ExpiryText, type DocRow } from './shared'
 
 const groups = [
@@ -18,15 +19,41 @@ const groups = [
   { id: '90', title: '61–90 days', test: (d: number) => d > 60 && d <= 90, tone: 'info' as const },
 ]
 
-export function ExpiryAlerts({ docs, self }: { docs: DocRow[]; self: boolean }) {
-  const [requested, setRequested] = useState<Set<string>>(new Set())
-  const [offsets, setOffsets] = useState<Record<number, boolean>>({ 90: true, 60: true, 30: true, 7: true })
-  const [recipients, setRecipients] = useState<Record<string, boolean>>({ Employee: true, Manager: true, HR: true })
+const sentToday = (at?: string | null) => !!at && at.slice(0, 10) === new Date().toISOString().slice(0, 10)
 
+export function ExpiryAlerts({ docs, self, onSaved }: { docs: DocRow[]; self: boolean; onSaved: (d: ComplianceItem) => void }) {
+  const [busy, setBusy] = useState<string | null>(null)
   const dated = docs.filter((d) => d.expires)
 
+  const remind = async (d: DocRow, renewal: boolean) => {
+    setBusy(`${d.id}-${renewal}`)
+    try {
+      const next = USE_MOCK_API ? { ...d, remindedAt: new Date().toISOString(), requestedAt: renewal ? new Date().toISOString() : d.requestedAt } : await complianceApi.remind(d.id, renewal)
+      onSaved(next)
+      toast.success(renewal ? `Renewal requested from ${d.emp?.name}` : `Reminder sent to ${d.emp?.name}`, { description: 'In-app notification and email.' })
+    } catch (err) {
+      toast.error(errorMessage(err))
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  const remindAll = async (id: string, items: DocRow[]) => {
+    setBusy(id)
+    try {
+      const n = USE_MOCK_API ? items.length : (await complianceApi.remindMany(items.map((d) => d.id))).reminded
+      const at = new Date().toISOString()
+      items.forEach((d) => onSaved({ ...d, remindedAt: at }))
+      toast.success(`${n} reminder${n === 1 ? '' : 's'} sent`, { description: 'In-app notification and email.' })
+    } catch (err) {
+      toast.error(errorMessage(err))
+    } finally {
+      setBusy(null)
+    }
+  }
+
   return (
-    <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
+    <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
       <div className="grid grid-cols-1 min-w-0 content-start gap-4">
         {groups.map((g, gi) => {
           const items = dated.filter((d) => g.test(daysUntil(d.expires!))).sort((a, b) => a.expires!.localeCompare(b.expires!))
@@ -41,7 +68,7 @@ export function ExpiryAlerts({ docs, self }: { docs: DocRow[]; self: boolean }) 
                 }
                 action={
                   items.length > 0 && !self ? (
-                    <Button size="sm" variant="outline" onClick={() => toast.success(`${items.length} reminders sent via email & in-app`)}>
+                    <Button size="sm" variant="outline" disabled={busy === g.id} onClick={() => void remindAll(g.id, items)}>
                       Remind all
                     </Button>
                   ) : undefined
@@ -68,26 +95,32 @@ export function ExpiryAlerts({ docs, self }: { docs: DocRow[]; self: boolean }) 
                               sub={
                                 <>
                                   {d.type} · {formatDate(d.expires!, 'short')} · <ExpiryText date={d.expires} />
+                                  {d.remindedAt && ` · reminded ${formatDate(d.remindedAt.slice(0, 10), 'short')}`}
                                 </>
                               }
                             />
                           )}
                         </div>
                         <div className="flex shrink-0 gap-2">
-                          <Button size="sm" variant="ghost" onClick={() => toast.success(self ? 'Reminder set for tomorrow' : `Reminder sent to ${d.emp?.name}`)}>
-                            {self ? 'Remind me' : 'Send reminder'}
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant={requested.has(d.id) ? 'secondary' : 'outline'}
-                            disabled={requested.has(d.id)}
-                            onClick={() => {
-                              setRequested((p) => new Set(p).add(d.id))
-                              toast.success(self ? `Renewal request for your ${d.type} sent to HR` : `Renewal requested from ${d.emp?.name}`)
-                            }}
-                          >
-                            {requested.has(d.id) ? 'Requested' : 'Request renewal'}
-                          </Button>
+                          {self ? (
+                            <Button size="sm" variant="outline" asChild>
+                              <Link to="/app/compliance?tab=documents">Upload renewal</Link>
+                            </Button>
+                          ) : (
+                            <>
+                              <Button size="sm" variant="ghost" disabled={busy === `${d.id}-false` || sentToday(d.remindedAt)} onClick={() => void remind(d, false)}>
+                                {sentToday(d.remindedAt) ? 'Reminded today' : 'Send reminder'}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant={d.requestedAt ? 'secondary' : 'outline'}
+                                disabled={busy === `${d.id}-true`}
+                                onClick={() => void remind(d, true)}
+                              >
+                                {d.requestedAt ? 'Request again' : 'Request renewal'}
+                              </Button>
+                            </>
+                          )}
                         </div>
                       </li>
                     ))}
@@ -100,39 +133,17 @@ export function ExpiryAlerts({ docs, self }: { docs: DocRow[]; self: boolean }) 
         })}
       </div>
 
-      <Section title="Reminder automation" description="Sent by email and in-app notification" className="h-fit">
-        <div className="grid grid-cols-1 gap-4">
-          <div>
-            <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Remind before expiry</div>
-            <div className="grid grid-cols-1 gap-2">
-              {[90, 60, 30, 7].map((n) => (
-                <label key={n} className="flex items-center justify-between rounded-lg border p-3 text-sm">
-                  <span>{n} days before</span>
-                  <Switch
-                    checked={offsets[n]}
-                    disabled={self}
-                    onCheckedChange={(v) => {
-                      setOffsets((p) => ({ ...p, [n]: v }))
-                      toast.success(`${n}-day reminder ${v ? 'on' : 'off'}`)
-                    }}
-                  />
-                </label>
-              ))}
-            </div>
-          </div>
-          <div>
-            <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Recipients</div>
-            <div className="grid grid-cols-1 gap-2">
-              {Object.keys(recipients).map((r) => (
-                <label key={r} className="flex items-center gap-2 text-sm">
-                  <Checkbox checked={recipients[r]} disabled={self} onCheckedChange={(v) => setRecipients((p) => ({ ...p, [r]: v === true }))} />
-                  {r === 'HR' ? 'HR team' : r === 'Manager' ? 'Line manager' : 'Employee'}
-                </label>
-              ))}
-            </div>
-          </div>
-          {self && <p className="text-xs text-muted-foreground">Managed by HR. Contact HR to change reminder settings.</p>}
-        </div>
+      <Section title="Automatic reminders" description="Expiry reminders by email and in-app notification" className="h-fit">
+        <p className="text-sm text-muted-foreground">
+          {self
+            ? 'HR sends reminders before your documents expire. Upload the renewed copy from My documents.'
+            : 'When reminders go out (e.g. 90, 60, 30 and 7 days before expiry) and who receives them is configured in automations.'}
+        </p>
+        {!self && (
+          <Button asChild variant="outline" size="sm" className="mt-4">
+            <Link to="/app/settings?tab=automations">Managed in Settings → Automations</Link>
+          </Button>
+        )}
       </Section>
     </div>
   )

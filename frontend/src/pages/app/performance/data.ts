@@ -1,4 +1,5 @@
 import type { Department, Employee, KPI } from '@/data/types'
+import type { KrUpdate } from './api'
 
 export function hash(s: string) {
   let h = 0
@@ -10,16 +11,18 @@ export function hash(s: string) {
 
 const LOWER_IS_BETTER = new Set(['Operating cost ratio', 'First response time'])
 
-export function attainment(k: KPI) {
-  const raw = LOWER_IS_BETTER.has(k.name) ? k.target / k.actual : k.actual / k.target
-  return raw
+type KpiLike = KPI & { lowerIsBetter?: boolean }
+
+export const isLowerBetter = (k: KpiLike) => k.lowerIsBetter ?? LOWER_IS_BETTER.has(k.name)
+export function attainment(k: KpiLike) {
+  if (isLowerBetter(k)) return k.actual ? k.target / k.actual : 1
+  return k.target ? k.actual / k.target : 0
 }
-export const kpiOnTrack = (k: KPI) => attainment(k) >= 0.95
-export const isLowerBetter = (k: KPI) => LOWER_IS_BETTER.has(k.name)
+export const kpiOnTrack = (k: KpiLike) => attainment(k) >= 0.95
 
 export const PERSPECTIVES: KPI['perspective'][] = ['Financial', 'Customer', 'Internal Process', 'Learning & Growth']
 
-export function weightedScore(kpis: KPI[]) {
+export function weightedScore(kpis: KpiLike[]) {
   const w = kpis.reduce((s, k) => s + k.weight, 0)
   if (!w) return 0
   return (kpis.reduce((s, k) => s + Math.min(1, attainment(k)) * k.weight, 0) / w) * 100
@@ -28,6 +31,8 @@ export function weightedScore(kpis: KPI[]) {
 /* ------------------------------ OKRs ------------------------------ */
 
 export interface KeyResult {
+  id?: string
+  updates?: KrUpdate[]
   title: string
   progress: number
   current: string
@@ -159,12 +164,12 @@ export function buildObjectives(workspaceId: string, departments: Department[], 
       title: t.title,
       ownerId: dept?.headId || employees[0]!.id,
       confidence: t.confidence,
-      keyResults: t.krs,
+      keyResults: t.krs.map((k, j) => ({ ...k, id: `okr-${i}-kr-${j}` })),
     }
   })
 }
 
-export const objectiveProgress = (o: Objective) => Math.round(o.keyResults.reduce((s, k) => s + k.progress, 0) / o.keyResults.length)
+export const objectiveProgress = (o: Objective) => (o.keyResults.length ? Math.round(o.keyResults.reduce((s, k) => s + k.progress, 0) / o.keyResults.length) : 0)
 
 /* ------------------------------ Reviews ------------------------------ */
 
@@ -188,6 +193,8 @@ export interface ReviewRow {
   manager: StepStatus
   peer: StepStatus
   final?: number
+  peerCount?: number
+  myPeerStatus?: StepStatus | null
 }
 
 export function reviewFor(e: Employee): ReviewRow {
@@ -223,10 +230,10 @@ export const NINE_BOX: Record<string, { label: string; hint: string; strength: n
   '1-2': { label: 'Trusted pro', hint: 'Deep expert', strength: 1 },
 }
 
-export type Readiness = 'Ready now' | '1–2 yrs' | '3+ yrs'
+export type Readiness = 'Ready now' | '1–2 years' | '3+ years'
 export function readinessOf(e: Employee): Readiness {
   const score = e.performance + e.potential * 0.5
-  return score >= 5.4 ? 'Ready now' : score >= 4.6 ? '1–2 yrs' : '3+ yrs'
+  return score >= 5.4 ? 'Ready now' : score >= 4.6 ? '1–2 years' : '3+ years'
 }
 export function flightRisk(e: Employee): 'Low' | 'Medium' | 'High' {
   const h = hash(e.id + 'risk') % 10

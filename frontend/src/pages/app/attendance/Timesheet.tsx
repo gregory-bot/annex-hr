@@ -5,8 +5,10 @@ import { Timeline, type TimelineItem } from '@/components/shared/Timeline'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
+import { USE_MOCK_API } from '@/lib/api'
 import { TODAY, cn, formatDate } from '@/lib/utils'
 import { SHIFT, entryFor, monthToDate, personalStatus, thisMonday, weekDates } from './data'
+import { useAttendanceStore } from './api'
 import { hm, hms, hrs, type Clock } from './workday'
 
 const H = 3_600_000
@@ -18,7 +20,7 @@ export function TimesheetCard({ clock, className }: { clock: Clock; className?: 
   return (
     <Section
       title="Timesheet"
-      description={formatDate(TODAY, 'long')}
+      description={formatDate(clock.date ?? TODAY, 'long')}
       className={cn('h-full', className)}
       action={
         <Badge variant={state.clockedIn ? (state.onBreak ? 'warning' : 'success') : 'muted'} dot>
@@ -28,7 +30,7 @@ export function TimesheetCard({ clock, className }: { clock: Clock; className?: 
     >
       <div className="rounded-lg border bg-subtle px-3 py-2.5">
         <div className="text-xs text-muted-foreground">Punched in at</div>
-        <div className="text-sm font-semibold tabular">{firstIn === null ? '—' : `${formatDate(TODAY, 'short')} · ${hm(firstIn)}`}</div>
+        <div className="text-sm font-semibold tabular">{firstIn === null ? '—' : `${formatDate(clock.date ?? TODAY, 'short')} · ${hm(firstIn)}`}</div>
       </div>
       <div className="flex justify-center py-5">
         <ProgressRing
@@ -46,11 +48,11 @@ export function TimesheetCard({ clock, className }: { clock: Clock; className?: 
       </div>
       <div className={cn('grid gap-2', state.clockedIn ? 'grid-cols-2' : 'grid-cols-1')}>
         {state.clockedIn && (
-          <Button variant="outline" onClick={toggleBreak}>
+          <Button variant="outline" onClick={toggleBreak} disabled={clock.busy}>
             {state.onBreak ? 'Resume' : 'Break'}
           </Button>
         )}
-        <Button variant={state.clockedIn ? 'secondary' : 'default'} onClick={() => toggle()}>
+        <Button variant={state.clockedIn ? 'secondary' : 'default'} onClick={() => toggle()} disabled={clock.busy || clock.ready === false}>
           {state.clockedIn ? 'Punch out' : 'Punch in'}
         </Button>
       </div>
@@ -71,8 +73,38 @@ function Figure({ label, value }: { label: string; value: string }) {
   )
 }
 
-/** Hours worked this week / month from deterministic history plus today's live timer. */
-export function useHourStats(seed: string, holidays: Set<string>, todayMs: number) {
+export interface HourStats {
+  today: number
+  week: number
+  month: number
+  remaining: number
+  overtime: number
+}
+
+/** Live mode: hours this week / month from the server's attendance history plus today's live timer. */
+function useLiveHourStats(seed: string, _holidays: Set<string>, todayMs: number): HourStats {
+  const { data } = useAttendanceStore(seed, true)
+  const past = useMemo(() => {
+    const day = data?.today.date ?? TODAY
+    const d = new Date(`${day}T00:00:00`)
+    const monday = new Date(d)
+    monday.setDate(d.getDate() - ((d.getDay() + 6) % 7))
+    const mondayIso = `${monday.getFullYear()}-${String(monday.getMonth() + 1).padStart(2, '0')}-${String(monday.getDate()).padStart(2, '0')}`
+    const monthStart = day.slice(0, 8) + '01'
+    const before = (data?.days ?? []).filter((x) => x.date < day)
+    const sum = (list: typeof before, f: (x: (typeof before)[number]) => number) => list.reduce((a, x) => a + f(x), 0) / 60
+    const week = before.filter((x) => x.date >= mondayIso)
+    const month = before.filter((x) => x.date >= monthStart)
+    return { week: sum(week, (x) => x.workedMinutes), month: sum(month, (x) => x.workedMinutes), overtime: sum(month, (x) => x.overtimeMinutes) }
+  }, [data])
+  const perDay = data?.settings.hoursPerDay ?? SHIFT.hoursPerDay
+  const today = todayMs / H
+  const month = past.month + today
+  return { today, week: past.week + today, month, remaining: Math.max(0, SHIFT.hoursPerMonth - month), overtime: past.overtime + Math.max(0, today - perDay) }
+}
+
+/** Demo mode: hours worked this week / month from deterministic history plus today's live timer. */
+function useMockHourStats(seed: string, holidays: Set<string>, todayMs: number): HourStats {
   const past = useMemo(() => {
     const worked = (dates: string[]) =>
       dates
@@ -101,7 +133,9 @@ export function useHourStats(seed: string, holidays: Set<string>, todayMs: numbe
   }
 }
 
-export function StatisticsCard({ stats, className }: { stats: ReturnType<typeof useHourStats>; className?: string }) {
+export const useHourStats: (seed: string, holidays: Set<string>, todayMs: number) => HourStats = USE_MOCK_API ? useMockHourStats : useLiveHourStats
+
+export function StatisticsCard({ stats, className }: { stats: HourStats; className?: string }) {
   const rows = [
     { label: 'Today', value: stats.today, target: SHIFT.hoursPerDay },
     { label: 'This week', value: stats.week, target: SHIFT.hoursPerWeek },

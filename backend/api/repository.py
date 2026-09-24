@@ -335,6 +335,8 @@ def get_workspace(workspace_id: str, db: psycopg.Connection | None = None) -> di
     return to_workspace(w, w["offices"]) if w else None
 
 
+_DOC_VISIBLE = "$3::boolean OR employee_id = $2 OR (employee_id IS NULL AND folder IN ('Policies', 'Templates'))"
+
 _BOOTSTRAP_SETS: dict[str, str] = {
     "departments": "SELECT * FROM departments WHERE workspace_id = $1 ORDER BY created_at, name",
     "employees": "SELECT * FROM employees WHERE workspace_id = $1 ORDER BY employee_no",
@@ -354,8 +356,10 @@ _BOOTSTRAP_SETS: dict[str, str] = {
     "surveys": "SELECT * FROM surveys WHERE workspace_id = $1 ORDER BY position",
     "notifications": f"{NOTIFICATION_SELECT} LIMIT 50",
     "kpis": "SELECT * FROM kpis WHERE workspace_id = $1 ORDER BY position",
-    "documents": "SELECT * FROM documents WHERE workspace_id = $1 ORDER BY folder, created_at",
-    "documentVersions": "SELECT v.* FROM document_versions v JOIN documents d ON d.id = v.document_id WHERE d.workspace_id = $1 ORDER BY v.position",
+    # Same visibility as GET /documents: HR admins and the CEO ($3) see everything; others see
+    # their own documents plus the shared company folders.
+    "documents": f"SELECT * FROM documents WHERE workspace_id = $1 AND ({_DOC_VISIBLE}) ORDER BY folder, created_at",
+    "documentVersions": f"SELECT v.* FROM document_versions v JOIN documents d ON d.id = v.document_id WHERE d.workspace_id = $1 AND ({_DOC_VISIBLE.replace('employee_id', 'd.employee_id').replace('folder', 'd.folder')}) ORDER BY v.position",
     "holidays": "SELECT * FROM holidays WHERE workspace_id = $1 ORDER BY date",
     "tasks": "SELECT * FROM onboarding_tasks WHERE workspace_id = $1 ORDER BY position",
     "metrics": "SELECT metric, data FROM metric_series WHERE workspace_id = $1",
@@ -407,7 +411,13 @@ def load_workspace_data(viewer: AuthContext) -> dict[str, Any]:
         "policies": [to_policy(p, versions_by.get(p["id"])) for p in b["policies"]],
         "complianceDocs": [to_compliance_doc(c) for c in b["complianceDocs"]],
         # Confidential cases are only ever sent to HR admins and the CEO.
-        "cases": [to_case(c, events_by.get(c["id"]), evidence_by.get(c["id"])) for c in b["cases"]] if is_exec(viewer.role) else [],
+        # Confidential subjects are never included here; the Cases module reveals them per viewer (logged).
+        "cases": [
+            {**case, "subjectId": ""} if case["confidential"] else case
+            for case in (to_case(c, events_by.get(c["id"]), evidence_by.get(c["id"])) for c in b["cases"])
+        ]
+        if is_exec(viewer.role)
+        else [],
         "offboardings": [to_offboarding(o, assets_by.get(o["id"])) for o in b["offboardings"]],
         "timesheets": [to_timesheet(t, entries_by.get(t["id"])) for t in b["timesheets"]],
         "surveys": [to_survey(s) for s in b["surveys"]],

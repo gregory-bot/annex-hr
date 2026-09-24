@@ -13,28 +13,42 @@ import { SimpleSelect } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet'
 import { DatePicker } from '@/components/shared/DatePicker'
+import { errorMessage, USE_MOCK_API } from '@/lib/api'
 import { cn } from '@/lib/utils'
+import type { SurveyFull, SurveyInput } from './api'
+import { surveyApi } from './api'
 import { QUESTION_TYPES, blankQuestion, type Question, type QuestionType } from './data'
 import { QuestionView, type Answer } from './QuestionView'
 
-export interface PublishedSurvey {
-  title: string
-  audience: number
-  anonymous: boolean
-  closes: string
-  questions: number
+function toDate(iso: string) {
+  const [y, m, d] = iso.split('-').map(Number)
+  return new Date(y!, (m ?? 1) - 1, d ?? 1)
 }
 
-export function Builder({ open, onOpenChange, onPublish }: { open: boolean; onOpenChange: (o: boolean) => void; onPublish: (s: PublishedSurvey) => void }) {
+/** Survey builder: saves drafts and publishes through the API (local only in mock mode). */
+export function Builder({
+  open,
+  onOpenChange,
+  draft,
+  onSaved,
+}: {
+  open: boolean
+  onOpenChange: (o: boolean) => void
+  draft?: SurveyFull | null
+  onSaved: (s: SurveyFull, published: boolean) => void
+}) {
   const { departments, employees } = useWorkspace()
-  const [title, setTitle] = useState('October Pulse')
-  const [audience, setAudience] = useState<string[]>(() => departments.map((d) => d.id))
-  const [anonymous, setAnonymous] = useState(true)
-  const [closes, setCloses] = useState<Date | undefined>(new Date(2026, 9, 9))
-  const [questions, setQuestions] = useState<Question[]>(() => [blankQuestion('emoji'), blankQuestion('nps'), blankQuestion('text')])
+  const [title, setTitle] = useState(draft?.title ?? 'October Pulse')
+  const [audience, setAudience] = useState<string[]>(() => (draft?.departments.length ? draft.departments : departments.map((d) => d.id)))
+  const [anonymous, setAnonymous] = useState(draft?.anonymous ?? true)
+  const [closes, setCloses] = useState<Date | undefined>(draft ? toDate(draft.closes) : new Date(2026, 9, 9))
+  const [questions, setQuestions] = useState<Question[]>(() =>
+    draft?.questions.length ? draft.questions.map((q) => ({ ...q })) : [blankQuestion('emoji'), blankQuestion('nps'), blankQuestion('text')],
+  )
   const [active, setActive] = useState(0)
   const [answer, setAnswer] = useState<Answer>(undefined)
   const [newType, setNewType] = useState<QuestionType>('emoji')
+  const [busy, setBusy] = useState<'draft' | 'publish' | null>(null)
 
   const audienceCount = employees.filter((e) => audience.includes(e.departmentId) && e.status !== 'Exited').length
   const current = questions[Math.min(active, questions.length - 1)]
@@ -60,13 +74,55 @@ export function Builder({ open, onOpenChange, onPublish }: { open: boolean; onOp
     setAnswer(undefined)
   }
 
-  const publish = () => {
-    if (!title.trim()) return toast.error('Give your survey a title')
+  const save = async (publish: boolean) => {
+    if (title.trim().length < 3) return toast.error('Give your survey a title (at least 3 characters)')
     if (!audience.length) return toast.error('Pick at least one department')
     if (!questions.length) return toast.error('Add at least one question')
-    onPublish({ title: title.trim(), audience: audienceCount, anonymous, closes: closes ? format(closes, 'yyyy-MM-dd') : '2026-10-09', questions: questions.length })
-    toast.success(`“${title.trim()}” is live`, { description: `Sent to ${audienceCount} people via email, Slack and the Annex HR app.` })
-    onOpenChange(false)
+    const bad = questions.findIndex((q) => q.text.trim().length < 3 || (q.type === 'choice' && (q.options ?? []).filter((o) => o.trim()).length < 2))
+    if (bad >= 0) {
+      setActive(bad)
+      return toast.error(`Question ${bad + 1} needs text${questions[bad]!.type === 'choice' ? ' and at least 2 options' : ''}`)
+    }
+    const input: SurveyInput = {
+      title: title.trim(),
+      anonymous,
+      closes: closes ? format(closes, 'yyyy-MM-dd') : '2026-10-09',
+      // All departments selected = the whole company (new joiners included).
+      departments: audience.length === departments.length ? [] : audience,
+      questions: questions.map((q) => ({ ...q, text: q.text.trim(), options: q.type === 'choice' ? (q.options ?? []).map((o) => o.trim()).filter(Boolean) : undefined })),
+    }
+    setBusy(publish ? 'publish' : 'draft')
+    try {
+      let saved: SurveyFull
+      if (USE_MOCK_API) {
+        saved = {
+          id: draft?.id ?? `s-${Date.now().toString(36)}`,
+          title: input.title,
+          status: publish ? 'Live' : 'Draft',
+          responses: 0,
+          audience: audienceCount,
+          engagement: 0,
+          enps: 0,
+          closes: input.closes,
+          anonymous,
+          questions: input.questions,
+          departments: input.departments,
+          respondedByMe: false,
+        }
+      } else if (draft) {
+        saved = await surveyApi.update(draft.id, input)
+        if (publish) saved = await surveyApi.publish(draft.id)
+      } else {
+        saved = await surveyApi.create(input, publish)
+      }
+      onSaved(saved, publish)
+      toast.success(publish ? `“${saved.title}” is live` : 'Draft saved', publish ? { description: `Sent to ${saved.audience} people in the Annex HR app.` } : undefined)
+      onOpenChange(false)
+    } catch (err) {
+      toast.error(errorMessage(err))
+    } finally {
+      setBusy(null)
+    }
   }
 
   return (
@@ -74,11 +130,16 @@ export function Builder({ open, onOpenChange, onPublish }: { open: boolean; onOp
       <SheetContent className="sm:max-w-5xl" hideClose>
         <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b bg-card/95 px-5 py-4 backdrop-blur">
           <div className="min-w-0">
-            <SheetTitle>New pulse survey</SheetTitle>
+            <SheetTitle>{draft ? 'Edit draft survey' : 'New pulse survey'}</SheetTitle>
             <SheetDescription className="truncate">Build, preview and publish in minutes</SheetDescription>
           </div>
           <div className="flex shrink-0 items-center gap-2">
-            <Button onClick={publish}>Publish</Button>
+            <Button size="sm" variant="outline" disabled={!!busy} onClick={() => void save(false)}>
+              {busy === 'draft' ? 'Saving…' : 'Save draft'}
+            </Button>
+            <Button size="sm" disabled={!!busy} onClick={() => void save(true)}>
+              {busy === 'publish' ? 'Publishing…' : 'Publish'}
+            </Button>
             <Button variant="ghost" size="icon" onClick={() => onOpenChange(false)} aria-label="Close">
               <X />
             </Button>

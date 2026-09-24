@@ -21,6 +21,12 @@ from api.config import settings
 from api.db import insert_many, pool, query, tx
 from api.security import hash_password
 
+from db.seed_automations import seed_automations
+from db.seed_cases_offboarding import seed_cases_offboarding
+from db.seed_engagement_compliance import seed_engagement_compliance
+from db.seed_payroll_performance import seed_payroll_performance
+from db.seed_time_leave import seed_time_leave
+
 DATA_FILE = Path(__file__).resolve().parent / "demo-data.json"
 
 
@@ -169,6 +175,13 @@ def seed_workspace(db: psycopg.Connection, d: dict[str, Any], password_hash: str
     ])
 
     insert_many(db, "metric_series", [{"workspace_id": W, "metric": metric, "data": json.dumps(series)} for metric, series in d["trends"].items()])
+
+    # Module demo data (attendance history, reviews, surveys, cases, reminders, …).
+    seed_time_leave(db, d)
+    seed_engagement_compliance(db, d)
+    seed_cases_offboarding(db, d)
+    seed_payroll_performance(db, d)
+    seed_automations(db, d)
 
 
 def main() -> None:

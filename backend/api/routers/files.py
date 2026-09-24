@@ -18,6 +18,7 @@ from ..errors import HttpError, bad_request, forbidden, not_found
 from ..security import AuthContext, require_auth
 
 router = APIRouter()
+FILE_CATEGORIES = (*FILE_CATEGORIES, "Handover")  # leave handover notes (linked from leave_requests.handover_file_id)
 
 MAX_BYTES = 10 * 1024 * 1024
 

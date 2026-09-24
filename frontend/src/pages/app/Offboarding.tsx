@@ -16,14 +16,17 @@ import { useWorkspace } from '@/context/auth'
 import { cn, daysUntil, formatDate } from '@/lib/utils'
 import { OffboardingDetail } from './offboarding/OffboardingDetail'
 import { StartOffboardingDialog } from './offboarding/StartOffboardingDialog'
-import { WORKFLOW, allAssetsReturned, buildRecord, completion, duesSettled, handoverDone, stageOf, type ExitRecord } from './offboarding/helpers'
+import { WORKFLOW, allAssetsReturned, type ExitItem } from './offboarding/helpers'
+import { useOffboardings } from './offboarding/useOffboardings'
+import { errorMessage } from '@/lib/api'
+import { Skeleton } from '@/components/ui/skeleton'
 
 function countdownText(lastDay: string) {
   const d = daysUntil(lastDay)
   return d > 0 ? `${d} day${d === 1 ? '' : 's'} remaining` : d === 0 ? 'Last day today' : 'Exited'
 }
 
-function Countdown({ r }: { r: ExitRecord }) {
+function Countdown({ r }: { r: ExitItem }) {
   const d = daysUntil(r.lastDay)
   if (d < 0)
     return (
@@ -65,33 +68,34 @@ function Chip({ done, label }: { done: boolean; label: string }) {
 export default function Offboarding() {
   const { offboardings, employees, employee, workspace, role, user } = useWorkspace()
   const prefix = workspace.logoText || workspace.slug.slice(0, 3).toUpperCase()
-  const [records, setRecords] = useState<ExitRecord[]>(() => offboardings.map((o) => buildRecord(o, employee(o.employeeId), prefix)))
+  const exits = useOffboardings({ seed: offboardings, employee, me: user, role, prefix })
+  const list = exits.items
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [params] = useSearchParams()
   const preselect = params.get('employee') ?? ''
   const [startOpen, setStartOpen] = useState(() => !!preselect)
 
-  const selected = records.find((r) => r.id === selectedId)
-  const selectedEmp = employee(selected?.employeeId)
+  const selectedEmp = employee(exits.detail?.employeeId)
 
-  const visible = useMemo(
-    () => (role === 'manager' ? records.filter((r) => employee(r.employeeId)?.managerId === user.id || employee(r.employeeId)?.departmentId === user.departmentId) : records),
-    [records, role, employee, user],
-  )
-  const list = role === 'manager' && visible.length === 0 ? records : visible
-
-  const active = list.filter((r) => daysUntil(r.lastDay) >= 0)
+  const active = list.filter((r) => daysUntil(r.lastDay) >= 0 && r.stage < 6)
   const remaining = active.map((r) => daysUntil(r.lastDay))
   const avgRemaining = remaining.length ? Math.round(remaining.reduce((a, b) => a + b, 0) / remaining.length) : 0
-  const outstandingAssets = list.reduce((s, r) => s + r.assetItems.filter((a) => !a.returned).length, 0)
+  const outstandingAssets = list.reduce((s, r) => s + r.assets.filter((a) => !a.returned).length, 0)
   const interviewPct = list.length ? Math.round((list.filter((r) => r.exitInterview).length / list.length) * 100) : 0
 
-  const stageCounts = WORKFLOW.map((_, i) => list.filter((r) => stageOf(r) === i).length)
+  const stageCounts = useMemo(() => WORKFLOW.map((_, i) => list.filter((r) => r.stage === i).length), [list])
 
-  const update = (r: ExitRecord) => setRecords((prev) => prev.map((x) => (x.id === r.id ? r : x)))
+  const openExit = (id: string) => {
+    setSelectedId(id)
+    exits.open(id).catch((err) => {
+      toast.error('Could not open the exit record', { description: errorMessage(err) })
+      setSelectedId(null)
+    })
+  }
 
-  const taken = new Set(records.map((r) => r.employeeId))
+  const taken = new Set(list.filter((r) => r.stage < 6).map((r) => r.employeeId))
   const eligible = employees.filter((e) => !taken.has(e.id) && e.status !== 'Exited' && e.role !== 'ceo')
+  const canStart = ['super_admin', 'company_admin', 'hr_officer', 'manager'].includes(role)
 
   return (
     <div className="grid grid-cols-1 gap-6">
@@ -103,9 +107,7 @@ export default function Offboarding() {
             ? 'Final dues, asset recovery and clearance for every departing employee.'
             : 'Resignations, notice periods, clearance and final settlement — one workflow, no loose ends.'
         }
-        actions={
-          <Button onClick={() => setStartOpen(true)}>Start offboarding</Button>
-        }
+        actions={canStart ? <Button onClick={() => setStartOpen(true)}>Start offboarding</Button> : undefined}
       />
 
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
@@ -135,28 +137,34 @@ export default function Offboarding() {
         </ol>
       </Section>
 
-      {list.length === 0 ? (
+      {exits.error ? (
+        <EmptyState title="Offboarding is unavailable" description={exits.error} />
+      ) : exits.loading ? (
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {[0, 1, 2].map((i) => (
+            <Skeleton key={i} className="h-48 w-full rounded-xl" />
+          ))}
+        </div>
+      ) : list.length === 0 ? (
         <EmptyState title="No active exits" description="When someone resigns, start their offboarding here." />
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           {list.map((r, i) => {
-            const emp = employee(r.employeeId)
-            const pct = completion(r)
+            const pct = r.progress
             return (
-              <motion.div key={r.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }} whileHover={{ y: -2 }}>
+              <motion.div key={r.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
                 <Card
                   role="button"
                   tabIndex={0}
-                  onClick={() => setSelectedId(r.id)}
-                  onKeyDown={(e) => e.key === 'Enter' && setSelectedId(r.id)}
-                  className="grid grid-cols-1 cursor-pointer gap-4 p-4 transition-shadow hover:shadow-md sm:p-5"
+                  onClick={() => openExit(r.id)}
+                  onKeyDown={(e) => e.key === 'Enter' && openExit(r.id)}
+                  className="grid grid-cols-1 cursor-pointer gap-4 p-4 transition-colors hover:border-primary/30 sm:p-5"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="grid grid-cols-1 min-w-0 gap-2">
-                      <PersonCell name={emp?.name ?? 'Employee'} sub={emp?.title} />
+                      <PersonCell name={r.employeeName} sub={r.employeeTitle} />
                       <div className="flex flex-wrap items-center gap-1.5">
                         <Badge variant={r.reason === 'Termination' ? 'danger' : 'soft'}>{r.reason}</Badge>
-                        {r.isNew && <Badge variant="info">New</Badge>}
                       </div>
                     </div>
                     <Countdown r={r} />
@@ -164,17 +172,17 @@ export default function Offboarding() {
                   <div className="grid grid-cols-1 gap-1.5">
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-muted-foreground">
-                        {WORKFLOW[stageOf(r)]} · last day {formatDate(r.lastDay, 'short')}
+                        {r.stageLabel} · last day {formatDate(r.lastDay, 'short')}
                       </span>
                       <span className="font-semibold tabular">{pct}%</span>
                     </div>
                     <Progress value={pct} tone={pct === 100 ? 'success' : 'primary'} />
                   </div>
                   <div className="flex flex-wrap gap-1.5">
-                    <Chip done={handoverDone(r)} label="Handover" />
+                    <Chip done={r.handover} label="Handover" />
                     <Chip done={allAssetsReturned(r)} label="Assets" />
                     <Chip done={r.exitInterview} label="Exit interview" />
-                    <Chip done={duesSettled(r)} label="Final dues" />
+                    {r.settlementStatus !== null && <Chip done={r.settlementStatus === 'Approved'} label="Final dues" />}
                   </div>
                 </Card>
               </motion.div>
@@ -184,14 +192,18 @@ export default function Offboarding() {
       )}
 
       <OffboardingDetail
-        record={selected}
-        emp={selectedEmp}
+        record={exits.detail && exits.detail.id === selectedId ? exits.detail : null}
         successors={employees.filter((e) => selectedEmp && e.id !== selectedEmp.id && e.departmentId === selectedEmp.departmentId && e.status !== 'Exited' && e.status !== 'Notice Period')}
         role={role}
-        open={!!selected}
-        onOpenChange={(o) => !o && setSelectedId(null)}
-        onUpdate={update}
-        countdown={selected ? countdownText(selected.lastDay) : ''}
+        open={!!selectedId}
+        onOpenChange={(o) => {
+          if (!o) {
+            setSelectedId(null)
+            exits.close()
+          }
+        }}
+        api={exits}
+        countdown={exits.detail ? countdownText(exits.detail.lastDay) : ''}
       />
 
       <StartOffboardingDialog
@@ -199,21 +211,10 @@ export default function Offboarding() {
         open={startOpen}
         onOpenChange={setStartOpen}
         employees={eligible}
-        onCreate={(o, letter) => {
-          const emp = employee(o.employeeId)
-          const base = {
-            ...o,
-            id: `off-new-${records.length}`,
-            progress: 0,
-            handover: false,
-            exitInterview: false,
-            finalDuesKES: emp?.salaryKES ?? 0,
-            assets: ['Laptop', 'Access card', 'SIM card', 'Email account', 'GitHub access', 'Slack access'].map((name) => ({ name, returned: false })),
-          }
-          const rec = buildRecord(base, emp, prefix, true)
-          setRecords((prev) => [rec, ...prev])
+        onCreate={async (o, letter) => {
+          const created = await exits.create(o, letter)
           setStartOpen(false)
-          toast.success(`Offboarding started for ${emp?.name ?? 'employee'}`, { description: `Last working day ${formatDate(o.lastDay)} · manager notified${letter ? ` · ${letter} attached` : ""}.` })
+          toast.success(`Offboarding started for ${created.employeeName}`, { description: `Last working day ${formatDate(o.lastDay)}${letter ? ` · ${letter.name} attached` : ''}.` })
         }}
       />
     </div>

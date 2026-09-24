@@ -1,9 +1,10 @@
 import type { ComplianceDoc, Employee } from '@/data/types'
+import type { ComplianceItem } from './api'
 import { cn, daysUntil } from '@/lib/utils'
 
 export const DOC_TYPES: ComplianceDoc['type'][] = ['Passport', 'Work Visa', 'Driving Licence', 'Contract', 'Academic Certificate', 'Certificate of Good Conduct', 'Professional License']
 
-export interface DocRow extends ComplianceDoc {
+export interface DocRow extends ComplianceItem {
   emp?: Employee
 }
 
@@ -18,3 +19,6 @@ export function ExpiryText({ date, className }: { date?: string; className?: str
   const label = d === 0 ? 'today' : d > 0 ? `in ${d} day${d === 1 ? '' : 's'}` : `${-d} day${d === -1 ? '' : 's'} ago`
   return <span className={cn('text-xs', d < 0 ? 'text-danger' : d < 60 ? 'text-warning' : 'text-muted-foreground', className)}>{label}</span>
 }
+
+export const isoDate = (d?: Date) =>
+  d ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` : undefined

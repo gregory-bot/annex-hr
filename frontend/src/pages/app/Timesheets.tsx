@@ -1,10 +1,12 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react'
 import { toast } from 'sonner'
 import type { Employee, Timesheet } from '@/data/types'
 import { useWorkspace } from '@/context/auth'
+import { api, errorMessage, USE_MOCK_API } from '@/lib/api'
 import { isLeader } from '@/lib/rbac'
 import { cn, daysUntil, formatKES } from '@/lib/utils'
 import { PageHeader } from '@/components/shared/PageHeader'
@@ -18,8 +20,6 @@ import { ProgressRing } from '@/components/shared/ProgressRing'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { Switch } from '@/components/ui/switch'
-import { Label } from '@/components/ui/label'
 import { ChartTooltip, Legend, SERIES, axisProps, gridProps } from '@/components/charts/ChartKit'
 import { WeekGrid } from './timesheets/WeekGrid'
 import { CURRENT_WEEK, WEEKLY_CAPACITY, fmtH, rowTotal, sheetBillable, sheetTotal, shiftWeek, weekLabel } from './timesheets/utils'
@@ -27,11 +27,30 @@ import { CURRENT_WEEK, WEEKLY_CAPACITY, fmtH, rowTotal, sheetBillable, sheetTota
 const cursorFill = { fill: 'var(--muted)', opacity: 0.6 }
 const inSeptember = (week: string) => week >= '2026-09-01' && week <= '2026-09-30'
 
+/** A timesheet as the API returns it: the shared shape plus review details. */
+type Sheet = Timesheet & { comment?: string | null; submittedAt?: string | null; decidedAt?: string | null; lastRemindedAt?: string | null }
+type SetSheets = React.Dispatch<React.SetStateAction<Sheet[]>>
+
+const daysSince = (isoTs: string) => Math.floor((Date.now() - new Date(isoTs).getTime()) / 86_400_000)
+
 export default function Timesheets() {
   const ws = useWorkspace()
   const { role, user } = ws
-  const [sheets, setSheets] = useState<Timesheet[]>(ws.timesheets)
+  const [sheets, setSheets] = useState<Sheet[]>(ws.timesheets)
   const approver = isLeader(role) || role === 'finance'
+
+  // Live mode: the server's list (with submission and reminder times) replaces the bootstrap copy.
+  useEffect(() => {
+    if (USE_MOCK_API) return
+    let live = true
+    api
+      .get<Sheet[]>(approver ? '/timesheets' : '/timesheets?mine=true')
+      .then((list) => live && setSheets(list))
+      .catch((err) => live && toast.error('Could not load timesheets', { description: errorMessage(err) }))
+    return () => {
+      live = false
+    }
+  }, [approver])
 
   return (
     <div>
@@ -48,15 +67,16 @@ export default function Timesheets() {
 
 /* ------------------------------------------------------------------ Consultant */
 
-function ConsultantView({ sheets, setSheets, user }: { sheets: Timesheet[]; setSheets: React.Dispatch<React.SetStateAction<Timesheet[]>>; user: Employee }) {
+function ConsultantView({ sheets, setSheets, user }: { sheets: Sheet[]; setSheets: SetSheets; user: Employee }) {
   const [week, setWeek] = useState(CURRENT_WEEK)
   const [newProject, setNewProject] = useState('')
+  const [saving, setSaving] = useState(false)
   const mine = sheets.filter((s) => s.employeeId === user.id)
   const latest = [...mine].sort((a, b) => b.week.localeCompare(a.week))[0]
   const rate = latest?.rate ?? 3500
 
   const existing = mine.find((s) => s.week === week)
-  const sheet: Timesheet = existing ?? {
+  const sheet: Sheet = existing ?? {
     id: `ts-${user.id}-${week}`,
     employeeId: user.id,
     week,
@@ -66,7 +86,7 @@ function ConsultantView({ sheets, setSheets, user }: { sheets: Timesheet[]; setS
   }
   const editable = sheet.status === 'Draft' || sheet.status === 'Rejected'
 
-  const update = (fn: (t: Timesheet) => Timesheet) =>
+  const update = (fn: (t: Sheet) => Sheet) =>
     setSheets((prev) => {
       const has = prev.some((s) => s.id === sheet.id)
       return has ? prev.map((s) => (s.id === sheet.id ? fn(s) : s)) : [...prev, fn(sheet)]
@@ -90,6 +110,30 @@ function ConsultantView({ sheets, setSheets, user }: { sheets: Timesheet[]; setS
 
   const total = sheetTotal(sheet)
   const billable = sheetBillable(sheet)
+
+  /** Replaces the local copy of this week with the server's version. */
+  const adopt = (saved: Sheet) => setSheets((prev) => [...prev.filter((s) => !(s.employeeId === user.id && s.week === saved.week) && s.id !== saved.id), saved])
+
+  const save = async (andSubmit: boolean) => {
+    const entries = sheet.entries.filter((e) => e.project.trim()).map((e) => ({ project: e.project, billable: e.billable, hours: Array.from({ length: 7 }, (_, i) => Number(e.hours[i]) || 0) }))
+    if (USE_MOCK_API) {
+      update((t) => ({ ...t, status: andSubmit ? 'Pending' : 'Draft' }))
+    } else {
+      setSaving(true)
+      try {
+        let saved = await api.put<Sheet>(`/timesheets/week/${week}`, { entries, rate })
+        if (andSubmit) saved = await api.post<Sheet>(`/timesheets/${saved.id}/submit`)
+        adopt(saved)
+      } catch (err) {
+        toast.error(andSubmit ? 'Timesheet not submitted' : 'Draft not saved', { description: errorMessage(err) })
+        return
+      } finally {
+        setSaving(false)
+      }
+    }
+    if (andSubmit) toast.success('Timesheet submitted for approval', { description: `${fmtH(total)} h · ${formatKES(billable * rate)} billable` })
+    else toast.success('Draft saved', { description: `${fmtH(total)} hours for ${weekLabel(week)}` })
+  }
 
   // Monthly summary (September 2026)
   const month = useMemo(() => {
@@ -137,6 +181,11 @@ function ConsultantView({ sheets, setSheets, user }: { sheets: Timesheet[]; setS
                 {sheet.status === 'Approved' ? 'Approved — this week is locked and ready for invoicing.' : 'Submitted — waiting for your manager’s approval. Editing is locked.'}
               </div>
             )}
+            {sheet.status === 'Rejected' && (
+              <div className="mb-3 rounded-lg bg-danger-soft px-3 py-2 text-xs text-danger">
+                Returned for changes{sheet.comment ? ` — “${sheet.comment}”` : ''}. Update the hours and submit again.
+              </div>
+            )}
             <WeekGrid sheet={sheet} editable={editable} onHours={setHours} onBillable={setBillable} onRemove={removeRow} />
           </motion.div>
         </AnimatePresence>
@@ -156,23 +205,11 @@ function ConsultantView({ sheets, setSheets, user }: { sheets: Timesheet[]; setS
               </Button>
             </form>
             <div className="grid grid-cols-2 gap-2 sm:flex">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  update((t) => ({ ...t, status: 'Draft' }))
-                  toast.success('Draft saved', { description: `${fmtH(total)} hours for ${weekLabel(week)}` })
-                }}
-              >
+              <Button variant="outline" disabled={saving} onClick={() => void save(false)}>
                 Save draft
               </Button>
-              <Button
-                disabled={total === 0}
-                onClick={() => {
-                  update((t) => ({ ...t, status: 'Pending' }))
-                  toast.success('Timesheet submitted for approval', { description: `${fmtH(total)} h · ${formatKES(billable * rate)} billable` })
-                }}
-              >
-                Submit
+              <Button disabled={total === 0 || saving} onClick={() => void save(true)}>
+                {saving ? 'Saving…' : 'Submit'}
               </Button>
             </div>
           </div>
@@ -200,7 +237,7 @@ function ConsultantView({ sheets, setSheets, user }: { sheets: Timesheet[]; setS
         <div className="mt-1 text-xs text-muted-foreground">Utilisation = billable hours ÷ {WEEKLY_CAPACITY} h weekly capacity</div>
         <div className="mt-4 text-xs font-medium text-muted-foreground">Hours by week</div>
         <ResponsiveContainer width="100%" height={200}>
-          <BarChart data={month.chart} margin={{ top: 8, right: 4, left: -20, bottom: 0 }}>
+          <BarChart data={month.chart} margin={{ top: 8, right: 4, left: -4, bottom: 0 }}>
             <CartesianGrid {...gridProps} />
             <XAxis dataKey="week" {...axisProps} />
             <YAxis {...axisProps} width={40} />
@@ -222,15 +259,16 @@ function ApproverView({
   setSheets,
   employee,
 }: {
-  sheets: Timesheet[]
-  setSheets: React.Dispatch<React.SetStateAction<Timesheet[]>>
+  sheets: Sheet[]
+  setSheets: SetSheets
   employee: (id?: string) => Employee | undefined
 }) {
+  const { user } = useWorkspace()
   const [filter, setFilter] = useState<Filter>('Pending')
   const [open, setOpen] = useState<string | null>(null)
   const [comments, setComments] = useState<Record<string, string>>({})
   const [reminded, setReminded] = useState<string[]>([])
-  const [auto, setAuto] = useState(true)
+  const [sending, setSending] = useState<string | null>(null)
 
   const submitted = sheets.filter((s) => s.status !== 'Draft')
   const september = sheets.filter((s) => inSeptember(s.week))
@@ -240,27 +278,67 @@ function ApproverView({
   const pending = sheets.filter((s) => s.status === 'Pending')
   const rows = (filter === 'All' ? submitted : sheets.filter((s) => s.status === filter)).sort((a, b) => b.week.localeCompare(a.week))
 
-  const decide = (s: Timesheet, status: 'Approved' | 'Rejected') => {
+  const decide = (s: Sheet, status: 'Approved' | 'Rejected') => {
     const name = employee(s.employeeId)?.name ?? 'Consultant'
     const note = comments[s.id]?.trim()
-    setSheets((prev) => prev.map((x) => (x.id === s.id ? { ...x, status } : x)))
+    setSheets((prev) => prev.map((x) => (x.id === s.id ? { ...x, status, comment: note || null } : x)))
     setOpen(null)
+    if (!USE_MOCK_API) {
+      api
+        .post<Sheet>(`/timesheets/${s.id}/decision`, { decision: status === 'Approved' ? 'approve' : 'reject', comment: note || undefined })
+        .then((saved) => setSheets((prev) => prev.map((x) => (x.id === s.id ? saved : x))))
+        .catch((err) => {
+          setSheets((prev) => prev.map((x) => (x.id === s.id ? s : x)))
+          toast.error('Decision not saved', { description: errorMessage(err) })
+        })
+    }
     if (status === 'Approved') toast.success(`Approved ${name}'s timesheet`, { description: `${fmtH(sheetTotal(s))} h · ${formatKES(sheetBillable(s) * s.rate)} queued for invoicing` })
     else toast.error(`Returned to ${name}`, { description: note ? `“${note}”` : 'Sent back for corrections.' })
   }
 
-  // Managers with pending approvals
+  // Managers with pending approvals; "waiting" counts from submission (or the week's Saturday).
   const managers = useMemo(() => {
-    const map = new Map<string, { manager: Employee; count: number; oldest: string }>()
+    const map = new Map<string, { manager: Employee; count: number; waiting: number; lastReminded: string | null }>()
     pending.forEach((s) => {
       const m = employee(employee(s.employeeId)?.managerId)
       if (!m) return
+      const waiting = s.submittedAt ? daysSince(s.submittedAt) : Math.max(0, -daysUntil(s.week) - 5)
       const cur = map.get(m.id)
-      if (!cur) map.set(m.id, { manager: m, count: 1, oldest: s.week })
-      else map.set(m.id, { ...cur, count: cur.count + 1, oldest: s.week < cur.oldest ? s.week : cur.oldest })
+      const reminded = s.lastRemindedAt ?? null
+      if (!cur) map.set(m.id, { manager: m, count: 1, waiting, lastReminded: reminded })
+      else map.set(m.id, { ...cur, count: cur.count + 1, waiting: Math.max(cur.waiting, waiting), lastReminded: reminded && (!cur.lastReminded || reminded > cur.lastReminded) ? reminded : cur.lastReminded })
     })
-    return [...map.values()].map((x) => ({ ...x, overdue: Math.max(0, -daysUntil(x.oldest) - 4) })).sort((a, b) => b.overdue - a.overdue)
+    return [...map.values()].map((x) => ({ ...x, overdue: Math.max(0, x.waiting - 3) })).sort((a, b) => b.overdue - a.overdue)
   }, [pending, employee])
+
+  /** POST /timesheets/reminders — nudges managers with timesheets pending over 3 days. */
+  const remind = async (manager?: Employee) => {
+    const key = manager?.id ?? 'all'
+    if (USE_MOCK_API) {
+      setReminded((r) => [...r, ...(manager ? [manager.id] : managers.map((m) => m.manager.id))])
+      toast.success(manager ? `Reminder sent to ${manager.name.split(' ')[0]}` : 'Reminders sent')
+      return
+    }
+    setSending(key)
+    try {
+      const res = await api.post<{ reminded: { managerId: string; name: string; count: number }[]; timesheets: number; emailed: number }>('/timesheets/reminders', manager ? { managerId: manager.id } : {})
+      if (!res.reminded.length) {
+        toast('Nothing overdue', { description: 'Reminders go out for timesheets pending more than 3 days.' })
+        return
+      }
+      const at = new Date().toISOString()
+      const ids = new Set(res.reminded.map((r) => r.managerId))
+      setReminded((r) => [...r, ...ids])
+      setSheets((prev) => prev.map((s) => (s.status === 'Pending' && ids.has(employee(s.employeeId)?.managerId ?? '') ? { ...s, lastRemindedAt: at } : s)))
+      toast.success(manager ? `Reminder sent to ${manager.name.split(' ')[0]}` : `Reminders sent to ${res.reminded.length} manager${res.reminded.length === 1 ? '' : 's'}`, {
+        description: `${res.timesheets} timesheet${res.timesheets === 1 ? '' : 's'} awaiting approval · in-app${res.emailed ? ' and email' : ''}`,
+      })
+    } catch (err) {
+      toast.error('Reminder not sent', { description: errorMessage(err) })
+    } finally {
+      setSending(null)
+    }
+  }
 
   const byProject = useMemo(() => {
     const map = new Map<string, { project: string; billable: number; nonBillable: number }>()
@@ -344,7 +422,8 @@ function ApproverView({
                             <div className="border-t p-3.5">
                               <WeekGrid sheet={s} />
                               <div className="mt-2 text-xs text-muted-foreground">Rate {formatKES(s.rate)}/h · invoice value {formatKES(b * s.rate)}</div>
-                              {s.status === 'Pending' && (
+                              {s.comment && s.status !== 'Pending' && <div className="mt-2 text-xs text-muted-foreground">Reviewer comment: “{s.comment}”</div>}
+                              {s.status === 'Pending' && s.employeeId !== user.id && (
                                 <div className="mt-3 flex flex-col gap-2 sm:flex-row">
                                   <Input
                                     placeholder="Comment (optional) — e.g. split Friday between projects"
@@ -374,42 +453,40 @@ function ApproverView({
           )}
         </Section>
 
-        <Section title="Approval reminders for managers" description="Managers with timesheets waiting on them">
-          <div className="mb-4 flex items-start justify-between gap-3 rounded-lg bg-subtle p-3">
-            <div>
-              <Label htmlFor="auto-remind" className="text-sm font-medium">
-                Remind managers every Monday 9:00
-              </Label>
-              <div className="mt-0.5 text-xs text-muted-foreground">Email + in-app nudge for anything pending over 3 days</div>
-            </div>
-            <Switch
-              id="auto-remind"
-              checked={auto}
-              onCheckedChange={(v) => {
-                setAuto(v)
-                toast.success(v ? 'Weekly reminders on' : 'Weekly reminders paused', { description: v ? 'Next run: Monday 28 Sep, 09:00 EAT' : 'Managers will not be nudged automatically.' })
-              }}
-            />
+        <Section
+          title="Approval reminders for managers"
+          description="Managers with timesheets waiting on them"
+          action={
+            managers.some((m) => m.overdue > 0) ? (
+              <Button size="sm" variant="outline" disabled={sending !== null} onClick={() => void remind()}>
+                Remind all
+              </Button>
+            ) : undefined
+          }
+        >
+          <div className="mb-4 rounded-lg bg-subtle p-3 text-xs text-muted-foreground">
+            Automatic reminders are managed in{' '}
+            <Link to="/app/settings?tab=automations" className="font-medium text-primary underline-offset-2 hover:underline">
+              Settings → Automations
+            </Link>
+            . Manual reminders go to managers with timesheets pending more than 3 days.
           </div>
           {managers.length === 0 ? (
-            <div className="rounded-lg border border-dashed py-8 text-center text-sm text-muted-foreground">No overdue approvals</div>
+            <div className="rounded-lg border border-dashed py-8 text-center text-sm text-muted-foreground">No pending approvals</div>
           ) : (
             <ul className="divide-y">
-              {managers.map(({ manager, count, overdue }) => {
+              {managers.map(({ manager, count, overdue, lastReminded }) => {
                 const sent = reminded.includes(manager.id)
+                const self = manager.id === user.id
                 return (
                   <li key={manager.id} className="flex items-center justify-between gap-3 py-2.5">
-                    <PersonCell name={manager.name} sub={`${count} pending · ${overdue ? `${overdue}d overdue` : 'due this week'}`} size="sm" />
-                    <Button
+                    <PersonCell
+                      name={manager.name}
+                      sub={`${count} pending · ${overdue ? `${overdue}d overdue` : 'within 3 days'}${lastReminded ? ` · reminded ${daysSince(lastReminded) === 0 ? 'today' : `${daysSince(lastReminded)}d ago`}` : ''}`}
                       size="sm"
-                      variant={sent ? 'ghost' : 'soft'}
-                      disabled={sent}
-                      onClick={() => {
-                        setReminded((r) => [...r, manager.id])
-                        toast.success(`Reminder sent to ${manager.name.split(' ')[0]}`, { description: `${count} timesheet${count === 1 ? '' : 's'} awaiting approval` })
-                      }}
-                    >
-                      {sent ? 'Sent' : 'Send reminder'}
+                    />
+                    <Button size="sm" variant={sent ? 'ghost' : 'soft'} disabled={sent || self || overdue === 0 || sending !== null} onClick={() => void remind(manager)}>
+                      {sending === manager.id ? 'Sending…' : sent ? 'Sent' : 'Send reminder'}
                     </Button>
                   </li>
                 )
@@ -424,7 +501,7 @@ function ApproverView({
           <EmptyState title="No hours logged yet" />
         ) : (
           <ResponsiveContainer width="100%" height={260}>
-            <BarChart data={byProject} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
+            <BarChart data={byProject} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid {...gridProps} />
               <XAxis dataKey="project" {...axisProps} interval={0} tickFormatter={(v: string) => (v.length > 14 ? v.slice(0, 13) + '…' : v)} />
               <YAxis {...axisProps} width={40} />

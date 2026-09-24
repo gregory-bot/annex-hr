@@ -1,58 +1,102 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
-import type { Employee } from '@/data/types'
+import type { ComplianceDoc, Employee } from '@/data/types'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import { SimpleSelect } from '@/components/ui/select'
+import { Skeleton } from '@/components/ui/skeleton'
+import { EmptyState } from '@/components/shared/EmptyState'
 import { PersonCell } from '@/components/shared/PersonCell'
 import { ProgressRing } from '@/components/shared/ProgressRing'
 import { Section } from '@/components/shared/Section'
-import { cn, formatDate, TODAY } from '@/lib/utils'
-import { seeded, seededInt } from '../onboarding/util'
+import { errorMessage, USE_MOCK_API } from '@/lib/api'
+import { cn, formatDate } from '@/lib/utils'
+import { seeded } from '../onboarding/util'
+import { auditApi, type AuditItem, type AuditStatus, type ComplianceItem } from './api'
+import { RequestDialog } from './EmployeeDocs'
 import type { DocRow } from './shared'
 
-const REQUIRED = [
-  { key: 'Contract', label: 'Signed employment contract', source: 'doc' },
+const MOCK_ITEMS: { key: string; label: string; type?: ComplianceDoc['type'] }[] = [
+  { key: 'contract', label: 'Signed employment contract', type: 'Contract' },
   { key: 'nid', label: 'National ID / Huduma card' },
   { key: 'kra', label: 'KRA PIN certificate' },
   { key: 'nssf', label: 'NSSF registration' },
   { key: 'shif', label: 'SHIF registration' },
-  { key: 'Certificate of Good Conduct', label: 'Certificate of Good Conduct', source: 'doc' },
-  { key: 'Academic Certificate', label: 'Academic certificates', source: 'doc' },
+  { key: 'conduct', label: 'Certificate of Good Conduct', type: 'Certificate of Good Conduct' },
+  { key: 'academic', label: 'Academic certificates', type: 'Academic Certificate' },
   { key: 'nda', label: 'Signed NDA & IP assignment' },
   { key: 'policies', label: 'Mandatory policy acknowledgements' },
-  { key: 'p9', label: 'P9 form (last tax year)' },
-] as const
+]
 
-export function AuditFiles({ employees, docs, department }: { employees: Employee[]; docs: DocRow[]; department: (id?: string) => { name: string } | undefined }) {
+function mockStatus(emp: Employee, docs: DocRow[]): AuditStatus {
+  const items: AuditItem[] = MOCK_ITEMS.map((r) => {
+    const doc = r.type ? docs.find((d) => d.employeeId === emp.id && d.type === r.type) : undefined
+    const status = doc ? (doc.status === 'Valid' ? 'ok' : doc.status === 'Missing' ? 'missing' : 'issue') : seeded(emp.id + r.key) < 0.8 ? 'ok' : 'missing'
+    return { key: r.key, label: r.label, status, note: status === 'ok' ? 'On file' : 'Not uploaded', type: status === 'missing' ? r.type : undefined }
+  })
+  const ready = items.filter((i) => i.status === 'ok').length
+  return { employeeId: emp.id, name: emp.name, items, ready, total: items.length, completeness: Math.round((ready / items.length) * 100), files: 0, complianceDocuments: 0 }
+}
+
+export function AuditFiles({
+  employees,
+  docs,
+  department,
+  onSaved,
+}: {
+  employees: Employee[]
+  docs: DocRow[]
+  department: (id?: string) => { name: string } | undefined
+  onSaved: (d: ComplianceItem) => void
+}) {
   const [empId, setEmpId] = useState(employees[0]?.id)
+  const [status, setStatus] = useState<AuditStatus | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [downloading, setDownloading] = useState(false)
+  const [request, setRequest] = useState<ComplianceDoc['type'] | null>(null)
+  const [version, setVersion] = useState(0)
   const emp = employees.find((e) => e.id === empId)
 
-  const checklist = useMemo(() => {
-    if (!emp) return []
-    const mine = docs.filter((d) => d.employeeId === emp.id)
-    return REQUIRED.map((r) => {
-      const doc = mine.find((d) => d.type === r.key)
-      let status: 'ok' | 'issue' | 'missing'
-      if ('source' in r && doc) status = doc.status === 'Valid' ? 'ok' : doc.status === 'Missing' ? 'missing' : 'issue'
-      else status = seeded(emp.id + r.key) < 0.82 ? 'ok' : 'missing'
-      const note = doc ? `${doc.status}${doc.expires ? ` · expires ${formatDate(doc.expires)}` : ''}` : status === 'ok' ? 'On file' : 'Not uploaded'
-      return { ...r, status, note }
-    })
-  }, [emp, docs])
+  useEffect(() => {
+    if (!emp) return
+    if (USE_MOCK_API) {
+      setStatus(mockStatus(emp, docs))
+      return
+    }
+    let live = true
+    setStatus(null)
+    setError(null)
+    auditApi
+      .status(emp.id)
+      .then((s) => live && setStatus(s))
+      .catch((e) => live && setError(errorMessage(e)))
+    return () => {
+      live = false
+    }
+    // docs is only used in mock mode; refetch after requests via `version`.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [emp?.id, version])
 
-  const pct = checklist.length ? Math.round((checklist.filter((c) => c.status === 'ok').length / checklist.length) * 100) : 0
-  const lastAudit = useMemo(() => {
-    if (!emp) return TODAY
-    const d = new Date(TODAY)
-    d.setDate(d.getDate() - seededInt(emp.id + 'audit', 12, 180))
-    return d.toISOString().slice(0, 10)
-  }, [emp])
+  if (!emp) return <EmptyState title="No employees" description="Add people to build their audit files." />
 
-  if (!emp) return null
+  const download = async () => {
+    if (USE_MOCK_API) return toast.info('Audit packs are generated by the server — connect the API to download.')
+    setDownloading(true)
+    try {
+      const name = await auditApi.downloadPack(emp.id)
+      toast.success(`Downloaded ${name}`)
+      setVersion((v) => v + 1)
+    } catch (err) {
+      toast.error(errorMessage(err))
+    } finally {
+      setDownloading(false)
+    }
+  }
+
+  const pct = status?.completeness ?? 0
 
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-[320px_minmax(0,1fr)]">
@@ -64,58 +108,85 @@ export function AuditFiles({ employees, docs, department }: { employees: Employe
               <SimpleSelect value={empId} onValueChange={setEmpId} options={employees.map((e) => ({ value: e.id, label: e.name }))} />
             </div>
             <PersonCell name={emp.name} sub={`${emp.employeeNo} · ${department(emp.departmentId)?.name ?? ''}`} />
-            <div className="flex items-center gap-4 rounded-xl bg-subtle p-4">
-              <ProgressRing value={pct} size={88} stroke={8} tone={pct === 100 ? 'success' : pct >= 70 ? 'primary' : 'warning'} />
-              <div className="text-sm">
-                <div className="font-semibold">File completeness</div>
-                <div className="text-xs text-muted-foreground">
-                  {checklist.filter((c) => c.status === 'ok').length} of {checklist.length} files ready
+            {status ? (
+              <div className="flex items-center gap-4 rounded-xl bg-subtle p-4">
+                <ProgressRing value={pct} size={88} stroke={8} tone={pct === 100 ? 'success' : pct >= 70 ? 'primary' : 'warning'} />
+                <div className="text-sm">
+                  <div className="font-semibold">File completeness</div>
+                  <div className="text-xs text-muted-foreground">
+                    {status.ready} of {status.total} items ready
+                  </div>
+                  <div className="mt-2 text-xs text-muted-foreground">
+                    {status.lastPackAt ? `Last pack downloaded ${formatDate(status.lastPackAt.slice(0, 10))}` : 'No audit pack downloaded yet'}
+                  </div>
                 </div>
-                <div className="mt-2 text-xs text-muted-foreground">Last audited {formatDate(lastAudit)}</div>
               </div>
-            </div>
-            <Button onClick={() => toast.success(`Audit pack for ${emp.name} is being prepared — ZIP download will start shortly`)}>
-              Download audit pack (ZIP)
+            ) : (
+              <Skeleton className="h-28" />
+            )}
+            <Button disabled={downloading || !status} onClick={() => void download()}>
+              {downloading ? 'Preparing ZIP…' : 'Download audit pack (ZIP)'}
             </Button>
             <p className="text-xs text-muted-foreground">
-              Includes every file below, an index and a signed audit trail — ready for NITA, KRA or labour inspections.
+              Contains the employee’s uploaded files with checksums, the compliance register, policy sign-offs (time and IP) and this checklist — ready for NITA, KRA or labour inspections.
             </p>
           </CardContent>
         </Card>
       </div>
 
-      <Section title="Required files" description="Kenya statutory & company requirements" action={<Badge variant={pct === 100 ? 'success' : 'warning'}>{pct === 100 ? 'Audit-ready' : 'Gaps found'}</Badge>}>
-        <ul className="grid grid-cols-1 gap-2">
-          {checklist.map((c, i) => (
-            <motion.li
-              key={c.key}
-              initial={{ opacity: 0, x: -6 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: i * 0.03 }}
-              className="flex items-center gap-3 rounded-lg border p-3"
-            >
-              <span
-                aria-label={c.status === 'ok' ? 'On file' : c.status === 'issue' ? 'Needs attention' : 'Missing'}
-                className={cn(
-                  'size-2 shrink-0 rounded-full',
-                  c.status === 'ok' && 'bg-success',
-                  c.status === 'issue' && 'bg-warning',
-                  c.status === 'missing' && 'bg-danger',
+      <Section
+        title="Required files"
+        description="Kenya statutory & company requirements"
+        action={status && <Badge variant={pct === 100 ? 'success' : 'warning'}>{pct === 100 ? 'Audit-ready' : 'Gaps found'}</Badge>}
+      >
+        {error ? (
+          <EmptyState title="Couldn’t load the checklist" description={error} />
+        ) : !status ? (
+          <div className="grid grid-cols-1 gap-2">
+            {Array.from({ length: 6 }, (_, i) => (
+              <Skeleton key={i} className="h-14" />
+            ))}
+          </div>
+        ) : (
+          <ul className="grid grid-cols-1 gap-2">
+            {status.items.map((c, i) => (
+              <motion.li
+                key={c.key}
+                initial={{ opacity: 0, x: -6 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: i * 0.03 }}
+                className="flex items-center gap-3 rounded-lg border p-3"
+              >
+                <span
+                  aria-label={c.status === 'ok' ? 'On file' : c.status === 'issue' ? 'Needs attention' : 'Missing'}
+                  className={cn('size-2 shrink-0 rounded-full', c.status === 'ok' && 'bg-success', c.status === 'issue' && 'bg-warning', c.status === 'missing' && 'bg-danger')}
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-medium">{c.label}</div>
+                  <div className="text-xs text-muted-foreground">{c.note}</div>
+                </div>
+                {c.status !== 'ok' && c.type && (
+                  <Button size="sm" variant="ghost" onClick={() => setRequest(c.type!)}>
+                    Request
+                  </Button>
                 )}
-              />
-              <div className="min-w-0 flex-1">
-                <div className="text-sm font-medium">{c.label}</div>
-                <div className="text-xs text-muted-foreground">{c.note}</div>
-              </div>
-              {c.status !== 'ok' && (
-                <Button size="sm" variant="ghost" onClick={() => toast.success(`Request sent to ${emp.name.split(' ')[0]} for ${c.label.toLowerCase()}`)}>
-                  Request
-                </Button>
-              )}
-            </motion.li>
-          ))}
-        </ul>
+              </motion.li>
+            ))}
+          </ul>
+        )}
       </Section>
+
+      <RequestDialog
+        key={`${emp.id}-${request ?? ''}`}
+        open={!!request}
+        onOpenChange={(o) => !o && setRequest(null)}
+        employees={employees}
+        preset={{ employeeId: emp.id, type: request ?? undefined }}
+        onSaved={(d) => {
+          onSaved(d)
+          setVersion((v) => v + 1)
+        }}
+      />
     </div>
   )
 }
