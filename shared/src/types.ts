@@ -208,3 +208,39 @@ export interface DocFile {
   version: string
   versions: { version: string; date: string; by: string }[]
 }
+
+// ── Ticketing (Linear-style requests to internal teams) ─────────────
+export type TicketTeamKey = 'ENG' | 'IT' | 'HR' | 'FIN' | 'OPS'
+export type TicketStatus = 'Backlog' | 'Todo' | 'In Progress' | 'In Review' | 'Done' | 'Canceled'
+export type TicketPriority = 'Urgent' | 'High' | 'Medium' | 'Low' | 'None'
+
+export interface TicketTeam {
+  id: string
+  key: TicketTeamKey | (string & {})
+  name: string
+  color: string
+}
+
+export interface TicketComment {
+  id: string
+  authorId: string
+  body: string
+  createdAt: string
+}
+
+export interface Ticket {
+  id: string
+  identifier: string // e.g. "ENG-142"
+  teamId: string
+  title: string
+  description: string
+  status: TicketStatus
+  priority: TicketPriority
+  reporterId: string
+  assigneeId?: string
+  labels: string[]
+  createdAt: string // ISO timestamp
+  updatedAt: string // ISO timestamp
+  dueDate?: string // YYYY-MM-DD
+  comments: TicketComment[]
+}

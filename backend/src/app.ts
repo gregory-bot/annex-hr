@@ -12,6 +12,7 @@ import { governanceRouter } from './modules/hr/governance'
 import { leaveRouter } from './modules/hr/leave'
 import { payrollRouter } from './modules/hr/payroll'
 import { peopleRouter } from './modules/hr/people'
+import { ticketsRouter } from './modules/hr/tickets'
 import { timesheetsRouter } from './modules/hr/timesheets'
 import { workspaceRouter } from './modules/workspace/routes'
 
@@ -47,7 +48,7 @@ export function createApp() {
   api.use('/workspaces', workspaceRouter)
 
   // Authenticated, workspace-scoped resources
-  api.use(requireAuth, peopleRouter, leaveRouter, payrollRouter, timesheetsRouter, governanceRouter, engagementRouter)
+  api.use(requireAuth, peopleRouter, leaveRouter, payrollRouter, timesheetsRouter, governanceRouter, engagementRouter, ticketsRouter)
 
   app.use('/api', api)
   app.use(notFoundHandler)

@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Moon, Plus, CalendarPlus, UserPlus, Wallet } from 'lucide-react'
+import { Moon, Plus, CalendarPlus, TicketPlus, UserPlus, Wallet } from 'lucide-react'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
 import { PersonAvatar } from '@/components/ui/avatar'
@@ -40,6 +40,9 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
             <CommandGroup heading="Quick actions">
               <CommandItem onSelect={() => go('/app/leave?apply=1')}>
                 <CalendarPlus /> Apply for leave
+              </CommandItem>
+              <CommandItem onSelect={() => go('/app/tickets?new=1')}>
+                <TicketPlus /> Create ticket
               </CommandItem>
               <CommandItem onSelect={() => go('/app/people?invite=1')}>
                 <UserPlus /> Invite employee

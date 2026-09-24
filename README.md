@@ -65,6 +65,7 @@ It is built for East African employers first. PAYE, SHIF, NSSF, the Affordable H
 | **Documents** | Folders, upload, preview, download and version history |
 | **Disciplinary & grievance** | Confidential case logging, evidence, investigation timeline, manager and HR notes, approval stages, access logging |
 | **Offboarding** | Resignation workflow, notice-period countdown, handover and knowledge transfer, asset recovery (laptop, access card, SIM, email, GitHub, Slack), exit interview, final settlement |
+| **Tickets** | Linear-style helpdesk: submit tickets to Engineering, IT Support, People & HR, Finance or Facilities; list and board views, statuses, priorities, labels, assignees, comments, keyboard shortcuts (`C` to create). HR tickets are private to the reporter, assignee and HR. |
 | **Reports** | Headcount, turnover, retention, leave, payroll, performance, recruitment, attendance and department analytics, with PDF and Excel export |
 | **Platform** | Workspace switcher, role-based navigation, notification centre, `⌘K` command palette, dark mode, responsive layouts from phone to desktop |
 
@@ -230,6 +231,7 @@ Every table lives inside `DB_SCHEMA`. Each pooled connection pins `search_path` 
 | Compliance & documents | `compliance_documents`, `documents`, `document_versions` |
 | Cases | `hr_cases`, `case_events`, `case_evidence`, `case_access_log` |
 | Offboarding | `offboardings`, `offboarding_assets` |
+| Tickets | `ticket_teams`, `tickets`, `ticket_comments` |
 | Engagement & performance | `surveys`, `survey_responses`, `kpis`, `notifications`, `metric_series` |
 | Audit | `audit_logs`, `schema_migrations` |
 
@@ -276,7 +278,7 @@ npm run db:reset        # drop all tables in DB_SCHEMA, migrate, seed (refused w
 
 | Module | Admin / HR | Manager | Employee | Consultant | Finance | CEO |
 | --- | :-: | :-: | :-: | :-: | :-: | :-: |
-| Dashboard, Onboarding, Leave, Attendance, Surveys, Documents | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Dashboard, Tickets, Onboarding, Leave, Attendance, Surveys, Documents | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | People | ✓ | ✓ | ✓ | | ✓ | ✓ |
 | Departments, Reports, Offboarding | ✓ | ✓ | | | ✓ | ✓ |
 | Timesheets | ✓ | ✓ | | ✓ | ✓ | ✓ |
@@ -330,6 +332,7 @@ Base path `/api`. JSON in and out. Errors return `{ "error": string, "details"?:
 | | `GET·POST /compliance-documents` · `GET·POST /documents` | |
 | | `GET·POST /cases` · `GET /cases/:id` · `POST /cases/:id/advance` · `POST /cases/:id/events` · `POST /cases/:id/access` · `GET /cases/:id/access-log` | Admin and CEO only |
 | | `GET·POST /offboardings` · `PATCH /offboardings/:id` | |
+| **Tickets** | `GET·POST /tickets` · `GET·PATCH /tickets/:id` · `POST /tickets/:id/comments` | Filters: `team`, `status`, `assignee=me`, `reporter=me`, `q` |
 | **Engagement** | `GET·POST /surveys` · `POST /surveys/:id/responses` | |
 | | `GET /kpis` · `PATCH /kpis/:id` | |
 | | `GET /notifications` · `POST /notifications/:id/read` · `POST /notifications/read-all` | |

@@ -17,9 +17,13 @@ import type {
   Policy,
   Role,
   Survey,
+  Ticket,
+  TicketTeam,
   Timesheet,
   Workspace,
 } from './types'
+import { buildTickets } from './ticketSeed'
+export { DEFAULT_TICKET_TEAMS, PRIVATE_TICKET_TEAMS, ticketAssigneePool } from './ticketSeed'
 
 /* ------------------------------------------------------------------
    Deterministic PRNG so the demo data is identical on every load.
@@ -373,6 +377,8 @@ export interface WorkspaceData {
   documents: DocFile[]
   holidays: Holiday[]
   onboardingTasks: OnboardingTask[]
+  ticketTeams: TicketTeam[]
+  tickets: Ticket[]
   trends: {
     headcount: { month: string; headcount: number; hires: number; exits: number }[]
     leave: { month: string; annual: number; sick: number; other: number }[]
@@ -722,6 +728,7 @@ function buildDerived(wsId: WorkspaceId, seedNo: number): WorkspaceData {
     documents,
     holidays,
     onboardingTasks,
+    ...buildTickets(workspace, employees, departments, seedNo),
     trends,
   }
 }

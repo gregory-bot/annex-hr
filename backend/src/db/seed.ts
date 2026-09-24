@@ -272,6 +272,35 @@ async function seedWorkspace(db: pg.PoolClient, d: (typeof workspaceData)[keyof 
     })),
   )
 
+  await insertMany(db, 'ticket_teams', d.ticketTeams.map((t, i) => ({ id: t.id, workspace_id: W, key: t.key, name: t.name, color: t.color, position: i })))
+  await insertMany(
+    db,
+    'tickets',
+    d.tickets.map((t) => ({
+      id: t.id,
+      workspace_id: W,
+      team_id: t.teamId,
+      number: Number(t.identifier.split('-').pop()),
+      identifier: t.identifier,
+      title: t.title,
+      description: t.description,
+      status: t.status,
+      priority: t.priority,
+      reporter_id: t.reporterId,
+      assignee_id: t.assigneeId ?? null,
+      labels: t.labels,
+      due_date: t.dueDate ?? null,
+      completed_at: t.status === 'Done' ? t.updatedAt : null,
+      created_at: t.createdAt,
+      updated_at: t.updatedAt,
+    })),
+  )
+  await insertMany(
+    db,
+    'ticket_comments',
+    d.tickets.flatMap((t) => t.comments.map((c) => ({ id: c.id, workspace_id: W, ticket_id: t.id, author_id: c.authorId, body: c.body, created_at: c.createdAt }))),
+  )
+
   await insertMany(db, 'metric_series', Object.entries(d.trends).map(([metric, data]) => ({ workspace_id: W, metric, data: JSON.stringify(data) })))
 }
 

@@ -2,93 +2,25 @@ import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { toast } from 'sonner'
-import { BadgeCheck, CircleAlert, Lock, Mail, Sparkles } from 'lucide-react'
+import { BadgeCheck, CircleAlert, Lock, Mail } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
-import { Separator } from '@/components/ui/separator'
 import { useAuth } from '@/context/auth'
 import { useWorkspaceLookup } from './useWorkspaceLookup'
-import type { Role } from '@/data/types'
-import { roleDescriptions, roleLabels } from '@/lib/rbac'
 import { cn } from '@/lib/utils'
 import { AuthLayout } from './AuthLayout'
 import { Field, PasswordInput, SubmitButton, WorkspaceInput } from './fields'
 
-const demoRoles: Role[] = ['company_admin', 'hr_officer', 'manager', 'employee', 'consultant', 'finance', 'ceo', 'super_admin']
-const demoWorkspaces: { id: string; label: string }[] = [
-  { id: 'annex', label: 'Annex Technologies' },
-  { id: 'demo-manufacturing', label: 'Demo Manufacturing' },
-]
-
-function DemoAccounts() {
-  const { signInAs } = useAuth()
-  const navigate = useNavigate()
-  const [ws, setWs] = useState('annex')
-  const [busy, setBusy] = useState<Role | null>(null)
-
-  const go = (role: Role) => {
-    setBusy(role)
-    void signInAs(ws, role).then((res) => {
-      setBusy(null)
-      if (!res.ok) {
-        toast.error(res.error)
-        return
-      }
-      toast.success(`Signed in as ${roleLabels[role]}`, { description: `${demoWorkspaces.find((w) => w.id === ws)?.label} demo workspace` })
-      navigate('/app')
-    })
-  }
-
-  return (
-    <div className="rounded-2xl border bg-subtle p-4">
-      <div className="flex items-center gap-2 text-sm font-semibold">
-        <Sparkles className="size-4 text-primary" /> Demo accounts
-      </div>
-      <p className="mt-1 text-xs text-muted-foreground">Explore Annex HR as any role — no password needed.</p>
-      <div className="mt-3 grid grid-cols-2 gap-1 rounded-lg bg-muted p-1" role="radiogroup" aria-label="Demo workspace">
-        {demoWorkspaces.map((w) => (
-          <button
-            key={w.id}
-            type="button"
-            role="radio"
-            aria-checked={ws === w.id}
-            onClick={() => setWs(w.id)}
-            className={cn('truncate rounded-md px-2 py-1.5 text-xs font-medium transition', ws === w.id ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')}
-          >
-            {w.label}
-          </button>
-        ))}
-      </div>
-      <div className="mt-3 flex flex-wrap gap-1.5">
-        {demoRoles.map((r) => (
-          <button
-            key={r}
-            type="button"
-            title={roleDescriptions[r]}
-            disabled={busy !== null}
-            onClick={() => go(r)}
-            className={cn(
-              'rounded-full border bg-card px-3 py-1.5 text-xs font-medium transition hover:border-primary/50 hover:bg-accent hover:text-accent-foreground disabled:opacity-60',
-              busy === r && 'border-primary bg-accent text-accent-foreground',
-            )}
-          >
-            {busy === r ? 'Signing in…' : roleLabels[r]}
-          </button>
-        ))}
-      </div>
-    </div>
-  )
-}
-
 export default function Login() {
-  const { signIn, demoEnabled } = useAuth()
+  const { signIn } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const from = (location.state as { from?: string } | null)?.from ?? '/app'
 
-  const [slug, setSlug] = useState('annex')
+  const [slug, setSlug] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [remember, setRemember] = useState(true)
@@ -97,7 +29,7 @@ export default function Login() {
   const [error, setError] = useState<string | null>(null)
 
   const { ws, checking, unreachable } = useWorkspaceLookup(slug)
-  const slugError = slug && !ws && !checking ? (unreachable ? "Can't reach the Annex HR server — check your connection and try again" : `No workspace found at ${slug}.annexhr.com`) : !slug && touched ? 'Enter your company workspace' : undefined
+  const slugError = slug && !ws && !checking ? (unreachable ? "Can't reach the Annex HR server — check your connection and try again" : `No workspace found with the name "${slug}"`) : !slug && touched ? 'Enter your company workspace' : undefined
   const emailError = touched && !/^\S+@\S+\.\S+$/.test(email) ? 'Enter a valid work email' : undefined
   const pwError = touched && password.length < 6 ? 'Password must be at least 6 characters' : undefined
 
@@ -194,27 +126,15 @@ export default function Login() {
           </SubmitButton>
         </form>
 
-        <p className="mt-6 text-center text-sm text-muted-foreground">
-          New to Annex HR?{' '}
-          <Link to="/signup" className="font-medium text-primary hover:underline">
-            Create a company workspace
-          </Link>
-        </p>
-        <p className="mt-2 text-center text-xs text-muted-foreground">
-          Got an invite?{' '}
-          <Link to="/invite/demo" className="font-medium text-foreground hover:text-primary hover:underline">
-            Accept your invitation
-          </Link>
-        </p>
-
-        {demoEnabled && (
-          <>
-            <div className="my-6 flex items-center gap-3 text-xs text-muted-foreground">
-              <Separator className="flex-1" /> or try the demo <Separator className="flex-1" />
-            </div>
-            <DemoAccounts />
-          </>
-        )}
+        <div className="mt-8 flex flex-col items-center justify-between gap-3 rounded-xl border bg-subtle px-5 py-4 text-center sm:flex-row sm:text-left">
+          <div>
+            <div className="text-sm font-semibold">New to Annex HR?</div>
+            <div className="text-xs text-muted-foreground">Set up a workspace for your company.</div>
+          </div>
+          <Button asChild variant="outline" size="sm" className="shrink-0">
+            <Link to="/signup">Create workspace</Link>
+          </Button>
+        </div>
       </motion.div>
     </AuthLayout>
   )

@@ -2,27 +2,62 @@ import { useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { addDays } from 'date-fns'
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { Bar, BarChart, CartesianGrid, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { AlarmClock, CalendarOff, Flame, Timer, Trophy, UserCheck } from 'lucide-react'
+import { format, parseISO } from 'date-fns'
 import { toast } from 'sonner'
 import { useWorkspace } from '@/context/auth'
 import { isLeader } from '@/lib/rbac'
 import { cn, formatDate, TODAY } from '@/lib/utils'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { Section } from '@/components/shared/Section'
-import { StatCard } from '@/components/shared/StatCard'
+import { DataTable, type Column } from '@/components/shared/DataTable'
 import { PersonCell } from '@/components/shared/PersonCell'
 import { ExportMenu } from '@/components/shared/ExportMenu'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { ChartTooltip, Legend, SERIES, axisProps, gridProps } from '@/components/charts/ChartKit'
-import { ClockCard, GeoCard, useClock } from './attendance/ClockCard'
+import { ClockCard, GeoCard } from './attendance/ClockCard'
 import { AttendanceHeatmap, MonthCalendar } from './attendance/Views'
-import { entryFor, hash01, minutesToHM, thisMonday, weekDates, type EntryStatus } from './attendance/data'
+import { StatisticsCard, TodayActivity, useHourStats } from './attendance/Timesheet'
+import { useClock, type Clock } from './attendance/workday'
+import { SHIFT, entryFor, leaveToday, minutesToHM, monthToDate, personalStatus, thisMonday, todayRoster, weekDates, type DayStatus } from './attendance/data'
+import { Kpi } from './dashboard/Kpi'
 
-const statusVariant: Record<EntryStatus, 'success' | 'warning' | 'info'> = { 'On time': 'success', Late: 'warning', Overtime: 'info' }
+type RecordStatus = 'On time' | 'Late' | 'Overtime' | 'Absent' | 'On leave' | 'Holiday' | 'Today'
+const statusVariant: Record<RecordStatus, 'success' | 'warning' | 'info' | 'danger' | 'muted' | 'soft'> = {
+  'On time': 'success',
+  Late: 'warning',
+  Overtime: 'info',
+  Absent: 'danger',
+  'On leave': 'info',
+  Holiday: 'muted',
+  Today: 'soft',
+}
+const offLabel: Partial<Record<DayStatus, RecordStatus>> = { absent: 'Absent', leave: 'On leave', holiday: 'Holiday' }
+
+interface DayRecord {
+  date: string
+  inMin: number | null
+  outMin: number | null
+  hours: number
+  breakMin: number
+  overtime: number
+  status: RecordStatus
+}
+
+function dayRecord(seed: string, date: string, holidays: Set<string>, clock: Clock): DayRecord {
+  if (date === TODAY) {
+    const h = clock.elapsed / 3_600_000
+    return { date, inMin: clock.firstIn === null ? null : clock.firstIn / 60_000, outMin: null, hours: +h.toFixed(2), breakMin: clock.breakMs / 60_000, overtime: Math.max(0, h - SHIFT.hoursPerDay), status: 'Today' }
+  }
+  const st = personalStatus(seed, date, holidays)
+  const off = offLabel[st]
+  if (off) return { date, inMin: null, outMin: null, hours: 0, breakMin: 0, overtime: 0, status: off }
+  const e = entryFor(seed, date)
+  return { date, inMin: e.inMin, outMin: e.outMin, hours: e.hours, breakMin: e.breakMin, overtime: e.overtime, status: e.status }
+}
 const cursorFill = { fill: 'var(--muted)', opacity: 0.6 }
 
 export default function Attendance() {
@@ -30,7 +65,7 @@ export default function Attendance() {
   const leader = isLeader(role)
   const [params, setParams] = useSearchParams()
   const tab = params.get('tab') ?? 'team'
-  const clock = useClock()
+  const clock = useClock(user.id)
   const holidaySet = useMemo(() => new Set(holidays.filter((h) => h.country === workspace.country).map((h) => h.date)), [holidays, workspace.country])
 
   return (
@@ -56,98 +91,112 @@ export default function Attendance() {
             <TabsTrigger value="me">My attendance</TabsTrigger>
           </TabsList>
           <TabsContent value="team">
-            <OrgView employees={employees} trends={trends.attendance} onLeave={leaveRequests.filter((r) => r.status === 'Approved' && r.start <= TODAY && r.end >= TODAY).length} holidaySet={holidaySet} seed={workspace.id} />
+            <OrgView employees={employees} trends={trends.attendance} onLeave={leaveToday(employees, leaveRequests)} holidaySet={holidaySet} seed={workspace.id} />
           </TabsContent>
           <TabsContent value="me">
-            <MyAttendance seed={user.id} elapsedHours={clock.elapsed / 3_600_000} holidaySet={holidaySet} orgSeed={workspace.id} />
+            <MyAttendance seed={user.id} clock={clock} holidaySet={holidaySet} orgSeed={workspace.id} />
           </TabsContent>
         </Tabs>
       ) : (
         <div className="mt-6">
-          <MyAttendance seed={user.id} elapsedHours={clock.elapsed / 3_600_000} holidaySet={holidaySet} orgSeed={workspace.id} />
+          <MyAttendance seed={user.id} clock={clock} holidaySet={holidaySet} orgSeed={workspace.id} />
         </div>
       )}
     </div>
   )
 }
 
-function MyAttendance({ seed, elapsedHours, holidaySet, orgSeed }: { seed: string; elapsedHours: number; holidaySet: Set<string>; orgSeed: string }) {
-  const [week, setWeek] = useState<'this' | 'last'>('this')
-  const monday = week === 'this' ? thisMonday : addDays(thisMonday, -7)
-  const rows = weekDates(monday).map((date) => {
-    if (date < TODAY) return { ...entryFor(seed, date), state: 'done' as const }
-    const e = entryFor(seed, date)
-    return { ...e, hours: date === TODAY ? +elapsedHours.toFixed(2) : 0, state: date === TODAY ? ('today' as const) : ('scheduled' as const) }
-  })
-  const total = rows.reduce((a, r) => a + r.hours, 0)
+function MyAttendance({ seed, clock, holidaySet, orgSeed }: { seed: string; clock: Clock; holidaySet: Set<string>; orgSeed: string }) {
+  const [range, setRange] = useState<'week' | 'last' | 'month'>('week')
+  const stats = useHourStats(seed, holidaySet, clock.elapsed)
+  const month = useMemo(() => monthToDate(), [])
+  const chartDates = range === 'month' ? month : weekDates(range === 'week' ? thisMonday : addDays(thisMonday, -7))
+  const chart = chartDates.map((date) => ({
+    label: range === 'month' ? format(parseISO(date), 'd') : format(parseISO(date), 'EEE'),
+    hours: date > TODAY ? 0 : +dayRecord(seed, date, holidaySet, clock).hours.toFixed(1),
+  }))
+  const records = [...month].reverse().map((d) => dayRecord(seed, d, holidaySet, clock))
+
+  const columns: Column<DayRecord>[] = [
+    {
+      key: 'date',
+      header: 'Date',
+      sortValue: (r) => r.date,
+      cell: (r) => (
+        <div>
+          <div className="font-medium">{formatDate(r.date, 'short')}</div>
+          <div className="text-xs text-muted-foreground">{format(parseISO(r.date), 'EEEE')}</div>
+        </div>
+      ),
+    },
+    { key: 'in', header: 'Punch in', cell: (r) => <span className="tabular">{r.inMin === null ? '—' : minutesToHM(r.inMin)}</span> },
+    { key: 'out', header: 'Punch out', cell: (r) => <span className="tabular">{r.outMin === null ? (r.status === 'Today' ? 'Live' : '—') : minutesToHM(r.outMin)}</span> },
+    { key: 'hours', header: 'Production', sortValue: (r) => r.hours, className: 'text-right', headerClassName: 'text-right', cell: (r) => <span className="font-semibold tabular">{r.hours ? `${r.hours.toFixed(2)} hrs` : '—'}</span> },
+    { key: 'break', header: 'Break', className: 'text-right', headerClassName: 'text-right', hideOnMobile: true, cell: (r) => <span className="tabular">{r.breakMin ? `${(r.breakMin / 60).toFixed(2)} hrs` : '—'}</span> },
+    { key: 'ot', header: 'Overtime', sortValue: (r) => r.overtime, className: 'text-right', headerClassName: 'text-right', cell: (r) => <span className="tabular">{r.overtime ? `${r.overtime.toFixed(2)} hrs` : '—'}</span> },
+    {
+      key: 'status',
+      header: 'Status',
+      cell: (r) => (
+        <Badge variant={statusVariant[r.status]} dot>
+          {r.status}
+        </Badge>
+      ),
+    },
+  ]
 
   return (
     <div className="grid grid-cols-1 gap-4">
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <StatisticsCard stats={stats} />
+        <TodayActivity clock={clock} />
         <Section
-          className="lg:col-span-2"
-          title="Hours this week"
-          description={`${total.toFixed(1)} h logged · target 40 h`}
+          title="Daily records"
+          description={`${chart.reduce((a, c) => a + c.hours, 0).toFixed(1)} hrs logged`}
           action={
             <div className="flex rounded-lg bg-muted p-0.5 text-xs">
-              {(['this', 'last'] as const).map((w) => (
-                <button key={w} onClick={() => setWeek(w)} className={cn('rounded-md px-2.5 py-1 font-medium', week === w ? 'bg-card shadow-sm' : 'text-muted-foreground')}>
-                  {w === 'this' ? 'This week' : 'Last week'}
+              {(['week', 'last', 'month'] as const).map((w) => (
+                <button key={w} onClick={() => setRange(w)} className={cn('rounded-md px-2 py-1 font-medium', range === w ? 'bg-card shadow-sm' : 'text-muted-foreground')}>
+                  {w === 'week' ? 'Week' : w === 'last' ? 'Last' : 'Month'}
                 </button>
               ))}
             </div>
           }
         >
           <ResponsiveContainer width="100%" height={260}>
-            <BarChart data={rows} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
+            <BarChart data={chart} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
               <CartesianGrid {...gridProps} />
-              <XAxis dataKey="day" {...axisProps} />
+              <XAxis dataKey="label" {...axisProps} interval={range === 'month' ? 'preserveStartEnd' : 0} />
               <YAxis {...axisProps} width={40} domain={[0, 12]} />
-              <Tooltip content={<ChartTooltip valueFormatter={(v) => `${v} h`} />} cursor={cursorFill} />
-              <Bar dataKey="hours" name="Hours" fill={SERIES[0]} radius={[4, 4, 0, 0]} maxBarSize={32} isAnimationActive={false} />
+              <ReferenceLine y={SHIFT.hoursPerDay} stroke="var(--muted-foreground)" strokeDasharray="4 4" strokeOpacity={0.6} />
+              <Tooltip content={<ChartTooltip valueFormatter={(v) => `${v} hrs`} />} cursor={cursorFill} />
+              <Bar dataKey="hours" name="Hours" fill={SERIES[0]} radius={[4, 4, 0, 0]} maxBarSize={28} isAnimationActive={false} />
             </BarChart>
           </ResponsiveContainer>
-        </Section>
-        <Section className="lg:col-span-3" title="Daily entries" description={`Week of ${formatDate(monday, 'medium')}`} contentClassName="px-0 pb-2">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Day</TableHead>
-                <TableHead>In</TableHead>
-                <TableHead>Out</TableHead>
-                <TableHead className="text-right">Hours</TableHead>
-                <TableHead>Status</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.map((r) => (
-                <TableRow key={r.date}>
-                  <TableCell>
-                    <div className="font-medium">{r.day}</div>
-                    <div className="text-xs text-muted-foreground">{formatDate(r.date, 'short')}</div>
-                  </TableCell>
-                  <TableCell className="tabular">{r.state === 'done' ? minutesToHM(r.inMin) : r.state === 'today' && r.hours > 0 ? 'Live' : '—'}</TableCell>
-                  <TableCell className="tabular">{r.state === 'done' ? minutesToHM(r.outMin) : '—'}</TableCell>
-                  <TableCell className="text-right font-semibold tabular">{r.state === 'scheduled' ? '—' : r.hours.toFixed(1)}</TableCell>
-                  <TableCell>
-                    {r.state === 'done' ? (
-                      <Badge variant={statusVariant[r.status]} dot>
-                        {r.status}
-                      </Badge>
-                    ) : r.state === 'today' ? (
-                      <Badge variant="soft" dot>
-                        Today
-                      </Badge>
-                    ) : (
-                      <Badge variant="muted">Scheduled</Badge>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <div className="mt-2 text-xs text-muted-foreground">Dashed line: {SHIFT.hoursPerDay} hr target</div>
         </Section>
       </div>
+      <Section title="Attendance list" description={`${format(parseISO(TODAY), 'MMMM yyyy')} · ${records.length} working days`} contentClassName="p-0 sm:p-0">
+        <DataTable rows={records} columns={columns} rowKey={(r) => r.date} pageSize={8}
+          mobileCard={(r) => (
+            <div>
+              <div className="flex items-center justify-between gap-2">
+                <div className="text-sm font-medium">
+                  {formatDate(r.date, 'short')} <span className="font-normal text-muted-foreground">· {format(parseISO(r.date), 'EEE')}</span>
+                </div>
+                <Badge variant={statusVariant[r.status]} dot>
+                  {r.status}
+                </Badge>
+              </div>
+              <div className="mt-1.5 grid grid-cols-3 gap-2 text-xs text-muted-foreground tabular">
+                <span>In {r.inMin === null ? '—' : minutesToHM(r.inMin)}</span>
+                <span>Out {r.outMin === null ? (r.status === 'Today' ? 'Live' : '—') : minutesToHM(r.outMin)}</span>
+                <span className="text-right font-semibold text-foreground">{r.hours ? `${r.hours.toFixed(2)} hrs` : '—'}</span>
+              </div>
+            </div>
+          )}
+          className="rounded-none rounded-b-xl border-0 border-t" />
+      </Section>
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Section title="Attendance calendar" description="Your daily status this month">
           <MonthCalendar seed={seed} holidays={holidaySet} />
@@ -169,7 +218,7 @@ function OrgView({
 }: {
   employees: ReturnType<typeof useWorkspace>['employees']
   trends: { day: string; onTime: number; late: number; absent: number }[]
-  onLeave: number
+  onLeave: ReturnType<typeof leaveToday>
   holidaySet: Set<string>
   seed: string
 }) {
@@ -179,15 +228,11 @@ function OrgView({
 
   const late = useMemo(
     () =>
-      [...active]
-        .sort((a, b) => hash01(a.id + TODAY) - hash01(b.id + TODAY))
-        .slice(0, wed.late)
-        .map((e, i) => {
-          const mins = 12 + Math.round(hash01(e.id + 'late') * 38) + i
-          return { e, mins, at: minutesToHM(8 * 60 + 30 + mins) }
-        })
+      todayRoster(active, wed, new Set(onLeave.keys()))
+        .filter((r) => r.status === 'Late')
+        .map((r) => ({ e: r.employee, mins: r.lateMin ?? 0, at: minutesToHM(r.inMin ?? 0) }))
         .sort((a, b) => b.mins - a.mins),
-    [active, wed.late],
+    [active, wed, onLeave],
   )
 
   const overtime = useMemo(
@@ -216,10 +261,10 @@ function OrgView({
   return (
     <div className="grid grid-cols-1 gap-4">
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-        <StatCard index={0} label="Present today" value={wed.onTime + wed.late} icon={UserCheck} tone="primary" hint={<span>of {active.length} active</span>} />
-        <StatCard index={1} label="Late arrivals" value={wed.late} icon={AlarmClock} tone="warning" hint={<span>after 08:40 grace</span>} />
-        <StatCard index={2} label="On leave" value={onLeave} icon={CalendarOff} hint={<span>approved today</span>} />
-        <StatCard index={3} label="Overtime this week" value={overtimeTotal} format={(n) => `${Math.round(n)} h`} icon={Flame} delta={8} deltaLabel="vs last week" />
+        <Kpi index={0} label="Present today" value={wed.onTime + wed.late - onLeave.size} icon={UserCheck} hint={`of ${active.length} active`} />
+        <Kpi index={1} label="Late arrivals" value={wed.late} icon={AlarmClock} hint="after 08:40 grace" />
+        <Kpi index={2} label="On leave" value={onLeave.size} icon={CalendarOff} hint="approved today" />
+        <Kpi index={3} label="Overtime this week" value={overtimeTotal} format={(n) => `${Math.round(n)} h`} icon={Flame} hint="hours beyond 8 h/day" />
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">

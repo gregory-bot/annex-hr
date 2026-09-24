@@ -4,7 +4,7 @@ import { Router } from 'express'
 import rateLimit from 'express-rate-limit'
 import { z } from 'zod'
 import type { Role } from '@annex/shared/types'
-import { workspaceData } from '@annex/shared/seed'
+import { DEFAULT_TICKET_TEAMS, workspaceData } from '@annex/shared/seed'
 import { env } from '../../config/env'
 import { pool, query, tx, type Queryable } from '../../db/pool'
 import { insertMany } from '../../db/sql'
@@ -119,6 +119,7 @@ authRouter.post('/register', authLimiter, async (req, res) => {
     await insertMany(db, 'onboarding_tasks', template.onboardingTasks.map((t, i) => ({ workspace_id: W, ...t, position: i })))
     const holidays = template.holidays.filter((h) => h.country === body.country)
     await insertMany(db, 'holidays', holidays.map((h) => ({ workspace_id: W, ...h })))
+    await insertMany(db, 'ticket_teams', DEFAULT_TICKET_TEAMS.map((t, i) => ({ workspace_id: W, key: t.key, name: t.name, color: t.color, position: i })))
     await insertMany(db, 'metric_series', Object.keys(template.trends).map((metric) => ({ workspace_id: W, metric, data: '[]' })))
     await query(
       `INSERT INTO notifications (workspace_id, type, title, body, href) VALUES ($1, 'system', $2, 'Next: add departments and invite your team.', '/app/people?invite=1')`,

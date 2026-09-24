@@ -15,6 +15,7 @@ const AcceptInvite = lazy(() => import('@/pages/auth/AcceptInvite'))
 const Dashboard = lazy(() => import('@/pages/app/Dashboard'))
 const People = lazy(() => import('@/pages/app/People'))
 const Departments = lazy(() => import('@/pages/app/Departments'))
+const Tickets = lazy(() => import('@/pages/app/Tickets'))
 const Onboarding = lazy(() => import('@/pages/app/Onboarding'))
 const Leave = lazy(() => import('@/pages/app/Leave'))
 const Attendance = lazy(() => import('@/pages/app/Attendance'))
@@ -47,6 +48,7 @@ function Guard({ module, children }: { module: string; children: React.ReactNode
 const modules: [string, React.LazyExoticComponent<() => React.JSX.Element>][] = [
   ['people', People],
   ['departments', Departments],
+  ['tickets', Tickets],
   ['onboarding', Onboarding],
   ['leave', Leave],
   ['attendance', Attendance],

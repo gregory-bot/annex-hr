@@ -1,38 +1,12 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Coffee, FingerprintPattern, Laptop, LogIn, LogOut, MapPin, Play, ShieldCheck, Smartphone } from 'lucide-react'
-import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { cn, formatDate, TODAY } from '@/lib/utils'
 import { SHIFT } from './data'
-
-const pad = (n: number) => String(n).padStart(2, '0')
-export const hms = (ms: number) => {
-  const s = Math.max(0, Math.floor(ms / 1000))
-  return `${pad(Math.floor(s / 3600))}:${pad(Math.floor((s % 3600) / 60))}:${pad(s % 60)}`
-}
-const clockTime = (d: Date) => d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
-
-export interface ClockState {
-  clockedIn: boolean
-  onBreak: boolean
-  accumulated: number
-  segmentStart: number | null
-  log: { at: Date; label: string }[]
-}
-
-export function useClock() {
-  const [now, setNow] = useState(() => new Date())
-  useEffect(() => {
-    const t = setInterval(() => setNow(new Date()), 1000)
-    return () => clearInterval(t)
-  }, [])
-  const [state, setState] = useState<ClockState>({ clockedIn: false, onBreak: false, accumulated: 0, segmentStart: null, log: [] })
-  const elapsed = state.accumulated + (state.segmentStart ? now.getTime() - state.segmentStart : 0)
-  return { now, state, setState, elapsed }
-}
+import { hms, type Clock } from './workday'
 
 type Method = 'Web' | 'Mobile' | 'Biometric'
 const methods: { id: Method; icon: typeof Laptop }[] = [
@@ -41,34 +15,9 @@ const methods: { id: Method; icon: typeof Laptop }[] = [
   { id: 'Biometric', icon: FingerprintPattern },
 ]
 
-export function ClockCard({ clock }: { clock: ReturnType<typeof useClock> }) {
-  const { now, state, setState, elapsed } = clock
+export function ClockCard({ clock }: { clock: Clock }) {
+  const { now, state, elapsed, toggle, toggleBreak, statusLabel } = clock
   const [method, setMethod] = useState<Method>('Web')
-
-  const toggle = () => {
-    const t = Date.now()
-    if (!state.clockedIn) {
-      setState((s) => ({ ...s, clockedIn: true, onBreak: false, segmentStart: t, log: [...s.log, { at: new Date(t), label: `Clocked in · ${method}` }] }))
-      toast.success(`Clocked in at ${clockTime(new Date(t))}`, { description: 'Westlands Office · location verified' })
-    } else {
-      const total = state.accumulated + (state.segmentStart ? t - state.segmentStart : 0)
-      setState((s) => ({ ...s, clockedIn: false, onBreak: false, accumulated: total, segmentStart: null, log: [...s.log, { at: new Date(t), label: 'Clocked out' }] }))
-      toast.success(`Clocked out — ${hms(total)} worked today`, { description: 'Your timesheet has been updated.' })
-    }
-  }
-
-  const toggleBreak = () => {
-    const t = Date.now()
-    if (!state.onBreak) {
-      setState((s) => ({ ...s, onBreak: true, accumulated: s.accumulated + (s.segmentStart ? t - s.segmentStart : 0), segmentStart: null, log: [...s.log, { at: new Date(t), label: 'Break started' }] }))
-      toast('Break started', { description: 'The timer is paused until you resume.' })
-    } else {
-      setState((s) => ({ ...s, onBreak: false, segmentStart: t, log: [...s.log, { at: new Date(t), label: 'Break ended' }] }))
-      toast.success('Welcome back — timer resumed')
-    }
-  }
-
-  const statusLabel = !state.clockedIn ? (state.accumulated ? 'Clocked out' : 'Not clocked in') : state.onBreak ? 'On break' : 'Working'
 
   return (
     <Card className="relative overflow-hidden p-5 sm:p-6">
@@ -76,7 +25,7 @@ export function ClockCard({ clock }: { clock: ReturnType<typeof useClock> }) {
       <div className="relative flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
           <div className="text-xs font-medium text-muted-foreground">{formatDate(TODAY, 'long')}</div>
-          <div className="mt-1 text-4xl font-bold tracking-tight tabular sm:text-5xl">{now.toLocaleTimeString('en-GB')}</div>
+          <div className="mt-1 text-4xl font-bold tracking-tight tabular sm:text-5xl">{hms(now)}</div>
           <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
             <Badge variant="outline">
               Shift {SHIFT.start}–{SHIFT.end}
@@ -106,12 +55,12 @@ export function ClockCard({ clock }: { clock: ReturnType<typeof useClock> }) {
               )}
             </AnimatePresence>
             <motion.div layout className="flex-1 sm:flex-none">
-              <Button size="xl" variant={state.clockedIn ? 'secondary' : 'default'} onClick={toggle} className="relative w-full min-w-40 overflow-hidden">
+              <Button size="xl" variant={state.clockedIn ? 'secondary' : 'default'} onClick={() => toggle(method)} className="relative w-full min-w-40 overflow-hidden">
                 {!state.clockedIn && <motion.span className="absolute inset-0 rounded-xl bg-white/20" animate={{ opacity: [0, 0.5, 0] }} transition={{ duration: 2.4, repeat: Infinity }} />}
                 <AnimatePresence mode="wait" initial={false}>
                   <motion.span key={state.clockedIn ? 'out' : 'in'} initial={{ y: 12, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -12, opacity: 0 }} className="relative flex items-center gap-2">
                     {state.clockedIn ? <LogOut className="size-4" /> : <LogIn className="size-4" />}
-                    {state.clockedIn ? 'Clock Out' : 'Clock In'}
+                    {state.clockedIn ? 'Punch out' : 'Punch in'}
                   </motion.span>
                 </AnimatePresence>
               </Button>
@@ -120,7 +69,7 @@ export function ClockCard({ clock }: { clock: ReturnType<typeof useClock> }) {
         </div>
       </div>
 
-      <div className="relative mt-5 flex flex-wrap items-center justify-between gap-3 border-t pt-4">
+      <div className="relative mt-5 flex flex-wrap items-center gap-3 border-t pt-4">
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="mr-1 text-xs text-muted-foreground">Method</span>
           {methods.map((m) => (
@@ -137,15 +86,6 @@ export function ClockCard({ clock }: { clock: ReturnType<typeof useClock> }) {
             </button>
           ))}
         </div>
-        {state.log.length > 0 && (
-          <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
-            {state.log.slice(-3).map((l, i) => (
-              <span key={i} className="tabular">
-                {clockTime(l.at)} · {l.label}
-              </span>
-            ))}
-          </div>
-        )}
       </div>
     </Card>
   )

@@ -13,14 +13,14 @@ import { AuthLayout, slideVariants } from './AuthLayout'
 import { Field, SubmitButton, WorkspaceInput } from './fields'
 
 export default function ForgotPassword() {
-  const [slug, setSlug] = useState('annex')
+  const [slug, setSlug] = useState('')
   const [email, setEmail] = useState('')
   const [touched, setTouched] = useState(false)
   const [loading, setLoading] = useState(false)
   const [sent, setSent] = useState(false)
 
   const { ws, checking, unreachable } = useWorkspaceLookup(slug)
-  const slugError = slug && !ws && !checking ? (unreachable ? "Can't reach the Annex HR server — check your connection and try again" : `No workspace found at ${slug}.annexhr.com`) : touched && !slug ? 'Enter your company workspace' : undefined
+  const slugError = slug && !ws && !checking ? (unreachable ? "Can't reach the Annex HR server — check your connection and try again" : `No workspace found with the name "${slug}"`) : touched && !slug ? 'Enter your company workspace' : undefined
   const emailOk = /^\S+@\S+\.\S+$/.test(email)
   const emailError = touched && !emailOk ? 'Enter a valid work email' : undefined
 

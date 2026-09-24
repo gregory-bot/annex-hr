@@ -14,9 +14,12 @@ import type {
   PayrollRun,
   Policy,
   Survey,
+  Ticket,
+  TicketTeam,
   Timesheet,
   Workspace,
 } from '@annex/shared/types'
+import { PRIVATE_TICKET_TEAMS } from '@annex/shared/seed'
 import { pool, query, type Queryable } from '../../db/pool'
 import type { AuthContext } from '../../middleware/auth'
 import { canSeePay, isAdmin, isExec } from '../../lib/roles'
@@ -206,6 +209,39 @@ export const toDocument = (d: Row, versions: Row[] = []): DocFile => ({
   versions: versions.map((v) => ({ version: v.version, date: v.date, by: v.by_name })),
 })
 
+const iso = (v: unknown) => (v ? new Date(v as string).toISOString() : '')
+
+export const toTicketTeam = (t: Row): TicketTeam => ({ id: t.id, key: t.key, name: t.name, color: t.color })
+
+/** Maps a ticket row; `comments` is the json_agg built by TICKET_SELECT. */
+export const toTicket = (t: Row): Ticket => ({
+  id: t.id,
+  identifier: t.identifier,
+  teamId: t.team_id,
+  title: t.title,
+  description: t.description,
+  status: t.status,
+  priority: t.priority,
+  reporterId: t.reporter_id,
+  assigneeId: t.assignee_id ?? undefined,
+  labels: t.labels ?? [],
+  createdAt: iso(t.created_at),
+  updatedAt: iso(t.updated_at),
+  dueDate: t.due_date ?? undefined,
+  comments: ((t.comments ?? []) as Row[]).map((c) => ({ id: c.id, authorId: c.author_id, body: c.body, createdAt: iso(c.created_at) })),
+})
+
+/**
+ * Tickets with their comments aggregated, scoped to workspace $1 and visible to employee $2.
+ * Tickets on private teams (People & HR) are only visible to the reporter, the assignee and
+ * HR/exec roles — `$3` is true for those roles.
+ */
+export const TICKET_SELECT = `SELECT t.*,
+    COALESCE((SELECT json_agg(c ORDER BY c.created_at) FROM ticket_comments c WHERE c.ticket_id = t.id), '[]'::json) AS comments
+  FROM tickets t JOIN ticket_teams tm ON tm.id = t.team_id
+  WHERE t.workspace_id = $1
+    AND (tm.key <> ALL ('{${PRIVATE_TICKET_TEAMS.join(',')}}'::text[]) OR t.reporter_id = $2 OR t.assignee_id = $2 OR $3::boolean)`
+
 function relativeTime(date: Date | string) {
   const mins = Math.round((Date.now() - new Date(date).getTime()) / 60_000)
   if (mins < 1) return 'Just now'
@@ -256,12 +292,14 @@ export async function loadWorkspaceData(viewer: AuthContext): Promise<WorkspaceD
     holidays: 'SELECT * FROM holidays WHERE workspace_id = $1 ORDER BY date',
     tasks: 'SELECT * FROM onboarding_tasks WHERE workspace_id = $1 ORDER BY position',
     metrics: 'SELECT metric, data FROM metric_series WHERE workspace_id = $1',
+    ticketTeams: 'SELECT * FROM ticket_teams WHERE workspace_id = $1 ORDER BY position, created_at',
+    tickets: `${TICKET_SELECT} ORDER BY t.updated_at DESC`,
   } as const
   const select = Object.entries(sets)
     .map(([key, sql]) => `(SELECT COALESCE(json_agg(t), '[]'::json) FROM (${sql}) t) AS "${key}"`)
     .concat(`(SELECT row_to_json(ws) FROM (${WORKSPACE_SQL}) ws) AS "workspaceRow"`)
     .join(',\n')
-  const [bundle] = await query<Record<keyof typeof sets, Row[]> & { workspaceRow: Row | null }>(`SELECT ${select}`, [W, viewer.employeeId])
+  const [bundle] = await query<Record<keyof typeof sets, Row[]> & { workspaceRow: Row | null }>(`SELECT ${select}`, [W, viewer.employeeId, isExec(viewer.role)])
   const {
     departments,
     employees,
@@ -286,6 +324,8 @@ export async function loadWorkspaceData(viewer: AuthContext): Promise<WorkspaceD
     holidays,
     tasks,
     metrics,
+    ticketTeams,
+    tickets,
     workspaceRow,
   } = bundle!
   const workspace = workspaceRow ? toWorkspace(workspaceRow, workspaceRow.offices) : null
@@ -331,6 +371,8 @@ export async function loadWorkspaceData(viewer: AuthContext): Promise<WorkspaceD
     documents: documents.map((d) => toDocument(d, docVersionsBy.get(d.id))),
     holidays: holidays.map((h) => ({ date: h.date, name: h.name, country: h.country }) as Holiday),
     onboardingTasks: tasks.map((t) => ({ id: t.id, title: t.title, description: t.description, category: t.category, required: t.required }) as OnboardingTask),
+    ticketTeams: ticketTeams.map(toTicketTeam),
+    tickets: tickets.map(toTicket),
     trends: {
       headcount: metric('headcount'),
       leave: metric('leave'),

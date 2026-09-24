@@ -2,47 +2,34 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { toast } from 'sonner'
-import {
-  AlarmClock,
-  ArrowRight,
-  BadgeCheck,
-  Briefcase,
-  CalendarDays,
-  Cake,
-  Check,
-  FileWarning,
-  Gauge,
-  Handshake,
-  Rocket,
-  ScrollText,
-  UserPlus,
-  Users,
-  Wallet,
-  X,
-} from 'lucide-react'
+import { AlarmClock, ArrowRight, Award, BadgeCheck, CalendarCheck, CalendarOff, Check, FileWarning, UserMinus, UserPlus, Users, Wallet, X } from 'lucide-react'
 import { useWorkspace } from '@/context/auth'
-import { StatCard } from '@/components/shared/StatCard'
 import { Section } from '@/components/shared/Section'
-import { Timeline, type TimelineItem } from '@/components/shared/Timeline'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { PersonAvatar } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Progress } from '@/components/ui/progress'
-import { cn, daysUntil, formatDate, formatKES } from '@/lib/utils'
-import type { LeaveRequest } from '@/data/types'
+import { Card } from '@/components/ui/card'
+import { canAccess, isAdminLike, isLeader } from '@/lib/rbac'
+import { TODAY, cn, daysUntil, formatDate, formatKES } from '@/lib/utils'
+import type { Employee, LeaveRequest } from '@/data/types'
+import { leaveToday, todayRoster } from '../attendance/data'
 import { Donut, Funnel, HorizontalBars, StackedBars, TrendArea, perfHistogram, SimpleBars } from './charts'
-import { upcomingBirthdays } from './utils'
+import { orgEvents } from './events'
+import { Kpi } from './Kpi'
+import { firstName } from './utils'
+import { AvatarStack, ClockInList, EmployeeStatusCard, OnLeaveToday, QUICK_LINKS, QuickAccess, TodoCard, UpcomingEvents } from './widgets'
 
 const fade = (i: number) => ({ initial: { opacity: 0, y: 8 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.35, delay: 0.05 + i * 0.04 } })
 
 export function OrgDashboard() {
   const ws = useWorkspace()
-  const { employees, departments, leaveRequests, payrollRuns, complianceDocs, trends, employee, department } = ws
+  const { employees, departments, leaveRequests, payrollRuns, complianceDocs, offboardings, trends, employee, department, user, role } = ws
   const active = useMemo(() => employees.filter((e) => e.status !== 'Exited'), [employees])
 
   const [leaves, setLeaves] = useState<LeaveRequest[]>(leaveRequests)
-  const pendingLeaves = leaves.filter((l) => l.status === 'Pending')
+  // You can't approve your own leave, so it's excluded from what needs your attention.
+  const pendingLeaves = leaves.filter((l) => l.status === 'Pending' && l.employeeId !== user.id)
 
   const decide = (l: LeaveRequest, approve: boolean) => {
     setLeaves((prev) => prev.map((x) => (x.id === l.id ? { ...x, status: approve ? 'Approved' : 'Rejected', stage: 'Complete' } : x)))
@@ -53,11 +40,7 @@ export function OrgDashboard() {
 
   const onboarding = active.filter((e) => e.status === 'Onboarding')
   const payrollPending = payrollRuns.filter((p) => p.status === 'Pending Approval')
-  const reviewsDue = Math.max(0, active.filter((e) => e.status === 'Active' || e.status === 'Probation').length - 14)
-  const consultants = active.filter((e) => e.employmentType === 'Consultant' || e.role === 'consultant')
-  const visaAlerts = complianceDocs.filter((d) => (d.type === 'Work Visa' || d.type === 'Passport') && (d.status === 'Expiring' || d.status === 'Expired'))
   const expiringDocs = complianceDocs.filter((d) => d.status === 'Expiring' || d.status === 'Expired')
-  const birthdays = upcomingBirthdays(employees, 30)
   const probationDue = active
     .filter((e) => e.probationEnd && daysUntil(e.probationEnd) <= 30 && daysUntil(e.probationEnd) >= -7)
     .sort((a, b) => daysUntil(a.probationEnd!) - daysUntil(b.probationEnd!))
@@ -79,57 +62,138 @@ export function OrgDashboard() {
   const perf = perfHistogram(active.map((e) => e.performance))
   const avgPerf = active.reduce((s, e) => s + e.performance, 0) / Math.max(1, active.length)
 
-  const stats = [
-    { label: 'Employees', value: active.length, icon: Users, delta: hcDelta, deltaLabel: 'vs last month', href: '/app/people', tone: 'primary' as const, span: 'col-span-2' },
-    { label: 'Departments', value: departments.length, icon: Briefcase, hint: `${ws.workspace.offices.length} office${ws.workspace.offices.length > 1 ? 's' : ''}`, href: '/app/departments' },
-    { label: 'Pending onboarding', value: onboarding.length, icon: Rocket, hint: 'new starters in progress', href: '/app/onboarding' },
-    { label: 'Leave requests', value: pendingLeaves.length, icon: CalendarDays, hint: 'awaiting approval', href: '/app/leave', tone: pendingLeaves.length ? ('warning' as const) : undefined },
-    { label: 'Payroll approvals', value: payrollPending.length, icon: Wallet, hint: payrollPending[0] ? `${payrollPending[0].period}` : 'All clear', href: '/app/payroll' },
-    { label: 'Reviews due', value: reviewsDue, icon: Gauge, hint: 'Q3 cycle closes 10 Oct', href: '/app/performance' },
-    { label: 'Consultants active', value: consultants.length, icon: Handshake, hint: 'on live timesheets', href: '/app/timesheets' },
-    { label: 'Visa & permit alerts', value: visaAlerts.length, icon: FileWarning, hint: 'expiring or expired', href: '/app/compliance', tone: visaAlerts.length ? ('warning' as const) : ('success' as const), span: 'lg:col-span-2' },
-    {
-      label: 'Upcoming birthdays',
-      value: birthdays.length,
-      icon: Cake,
-      hint: birthdays[0] ? `Next: ${birthdays[0].employee.name.split(' ')[0]} · ${birthdays[0].days === 0 ? 'today' : `in ${birthdays[0].days}d`}` : 'next 30 days',
-      span: 'lg:col-span-2',
-    },
+  const leaveMap = useMemo(() => leaveToday(employees, leaveRequests), [employees, leaveRequests])
+  const onLeavePeople = [...leaveMap.entries()].map(([id, v]) => ({ employee: employee(id), ...v })).filter((x): x is typeof x & { employee: Employee } => !!x.employee && x.employee.status !== 'Exited')
+  const month = TODAY.slice(0, 7)
+  const newThisMonth = active.filter((e) => e.startDate.startsWith(month))
+  const resignedThisMonth = offboardings.filter((o) => o.reason === 'Resignation' && o.submitted.startsWith(month))
+
+  const att = trends.attendance[2] ?? trends.attendance[0] ?? { day: 'Wed', onTime: active.length, late: 0, absent: 0 }
+  const roster = useMemo(() => todayRoster(active, att, new Set(leaveMap.keys())), [active, att, leaveMap])
+  const count = (s: string) => roster.filter((r) => r.status === s).length
+  const attendanceData = [
+    { label: 'On time', value: count('On time') },
+    { label: 'Late', value: count('Late') },
+    { label: 'On leave', value: count('On leave') },
+    { label: 'Absent', value: count('Absent') },
+  ]
+  const present = attendanceData[0]!.value + attendanceData[1]!.value
+  const absentees = roster.filter((r) => r.status === 'Absent').map((r) => r.employee.name)
+
+  const approvals = payrollPending.length + expiringDocs.length + probationDue.length
+  const events = useMemo(() => orgEvents(active, ws.holidays, ws.workspace.country), [active, ws.holidays, ws.workspace.country])
+  const topPerformer = [...active].sort((a, b) => b.performance - a.performance || a.name.localeCompare(b.name))[0]
+
+  const quick = [
+    QUICK_LINKS.apply!,
+    ...(isLeader(role) ? [QUICK_LINKS.approvals!] : []),
+    QUICK_LINKS.calendar!,
+    ...(isAdminLike(role) ? [QUICK_LINKS.invite!] : []),
+    ...(canAccess(role, 'payroll') ? [QUICK_LINKS.payroll!] : []),
+    QUICK_LINKS.ticket!,
   ]
 
-  const activity: TimelineItem[] = [
-    ...(payrollRuns[1] ? [{ title: `${payrollRuns[1].period} payroll synced to Odoo`, meta: '3 days ago', body: `${formatKES(payrollRuns[1].net, { compact: true })} net across ${payrollRuns[1].employees} employees`, icon: Wallet }] : []),
-    ...leaveRequests
-      .filter((l) => l.status === 'Approved')
-      .slice(0, 2)
-      .map((l) => ({ title: `${employee(l.employeeId)?.name} — ${l.type} leave approved`, meta: formatDate(l.submitted, 'short'), body: `${l.days} days from ${formatDate(l.start, 'short')}`, icon: BadgeCheck })),
-    ...onboarding.slice(0, 1).map((e) => ({ title: `${e.name} joined as ${e.title}`, meta: formatDate(e.startDate, 'short'), body: department(e.departmentId)?.name, icon: UserPlus })),
-    { title: 'Data Protection policy v3.1 published', meta: 'Yesterday', body: 'Acknowledgement requested from all employees', icon: ScrollText, state: 'done' as const },
-    { title: 'Q3 performance reviews opened', meta: 'Yesterday', body: 'Self-assessments close on 10 October', icon: Gauge, state: 'current' as const },
+  const todos = [
+    payrollPending[0] ? `Approve ${payrollPending[0].period} payroll` : 'Review payroll variance report',
+    'Confirm Q3 review calibration panel',
+    probationDue[0] ? `Schedule ${firstName(probationDue[0].name)}'s probation review` : 'Update the leave policy FAQ',
+    'Share September attendance summary with managers',
   ]
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-        {stats.map(({ span, ...s }, i) => (
-          <div key={s.label} className={cn(span)}>
-            <StatCard {...s} index={i} />
+      <motion.div {...fade(0)}>
+        <Card className="p-5 sm:p-6">
+          <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+            <div className="flex min-w-0 flex-1 items-center gap-4">
+              <PersonAvatar name={user.name} className="size-14 shrink-0 text-base" />
+              <div className="min-w-0">
+                <div className="text-xs font-medium text-muted-foreground">{formatDate(TODAY, 'long')}</div>
+                <h1 className="mt-0.5 truncate text-xl font-bold tracking-tight sm:text-2xl">Welcome back, {firstName(user.name)}</h1>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  You have <span className="font-semibold text-foreground tabular">{approvals}</span> pending approval{approvals === 1 ? '' : 's'} &{' '}
+                  <span className="font-semibold text-foreground tabular">{pendingLeaves.length}</span> leave request{pendingLeaves.length === 1 ? '' : 's'}
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2 md:shrink-0 md:justify-end">
+              {isLeader(role) && (
+                <Button asChild>
+                  <Link to="/app/leave?tab=approvals">
+                    <CalendarCheck /> Review approvals
+                  </Link>
+                </Button>
+              )}
+              {isAdminLike(role) && (
+                <Button asChild variant="outline">
+                  <Link to="/app/people?invite=1">
+                    <UserPlus /> Invite employee
+                  </Link>
+                </Button>
+              )}
+              {canAccess(role, 'payroll') && (
+                <Button asChild variant="outline">
+                  <Link to="/app/payroll">
+                    <Wallet /> Run payroll
+                  </Link>
+                </Button>
+              )}
+            </div>
           </div>
-        ))}
+        </Card>
+      </motion.div>
+
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+        <Kpi index={0} label="Total employees" value={active.length} icon={Users} href="/app/people" hint={`${hcDelta >= 0 ? '+' : ''}${hcDelta}% vs last month`} />
+        <Kpi index={1} label="On leave today" value={onLeavePeople.length} icon={CalendarOff} href="/app/leave?tab=calendar" hint={`${pendingLeaves.length} requests pending`} />
+        <Kpi index={2} label="New this month" value={newThisMonth.length} icon={UserPlus} href="/app/onboarding" hint={`${onboarding.length} onboarding`} />
+        <Kpi index={3} label="Resigned this month" value={resignedThisMonth.length} icon={UserMinus} href="/app/offboarding" hint={`${offboardings.length} in offboarding`} />
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <motion.div {...fade(1)} className="min-w-0">
+          <Section title="Attendance today" description={`${present} of ${active.length} present`} className="h-full">
+            <Donut data={attendanceData} centerValue={String(active.length)} centerLabel="employees" height={200} />
+            {absentees.length > 0 && (
+              <div className="mt-4 flex items-center justify-between gap-3 border-t pt-3">
+                <span className="text-xs text-muted-foreground">Absent</span>
+                <AvatarStack names={absentees} max={4} />
+              </div>
+            )}
+          </Section>
+        </motion.div>
+        <motion.div {...fade(2)} className="min-w-0">
+          <EmployeeStatusCard active={active} />
+        </motion.div>
+        <motion.div {...fade(3)} className="min-w-0 md:col-span-2 lg:col-span-1">
+          <ClockInList roster={roster} />
+        </motion.div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <motion.div {...fade(4)} className="min-w-0">
+          <QuickAccess links={quick} />
+        </motion.div>
+        <motion.div {...fade(5)} className="min-w-0">
+          <UpcomingEvents events={events} description="Interviews, meetings, holidays and birthdays" />
+        </motion.div>
+        <motion.div {...fade(6)} className="min-w-0 md:col-span-2 lg:col-span-1">
+          <OnLeaveToday people={onLeavePeople} />
+        </motion.div>
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <motion.div {...fade(0)} className="min-w-0 lg:col-span-2">
+        <motion.div {...fade(7)} className="min-w-0 lg:col-span-2">
           <Section title="Headcount trend" description={`${last.headcount} people today · ${hc.reduce((s, h) => s + h.hires, 0)} hires in 12 months`} className="h-full">
             <TrendArea data={hc} xKey="month" yKey="headcount" name="Headcount" />
           </Section>
         </motion.div>
-        <motion.div {...fade(1)} className="min-w-0">
-          <Section title="Gender diversity" description="Active employees" className="h-full">
-            <Donut data={gender} centerValue={`${femalePct}%`} centerLabel="women" />
+        <motion.div {...fade(8)} className="min-w-0">
+          <Section title="Employees by department" description={`${departments.length} departments`} className="h-full">
+            <HorizontalBars data={deptData} name="Employees" />
           </Section>
         </motion.div>
-        <motion.div {...fade(2)} className="min-w-0 lg:col-span-2">
+        <motion.div {...fade(9)} className="min-w-0 lg:col-span-2">
           <Section title="Leave trend" description="Days taken per month by type" className="h-full">
             <StackedBars
               data={trends.leave}
@@ -143,32 +207,47 @@ export function OrgDashboard() {
             />
           </Section>
         </motion.div>
-        <motion.div {...fade(3)} className="min-w-0">
+        <motion.div {...fade(10)} className="min-w-0">
           <Section title="Hiring funnel" description="Open roles · last 90 days" className="h-full">
             <Funnel data={trends.hiringFunnel} />
           </Section>
         </motion.div>
-        <motion.div {...fade(4)} className="min-w-0 lg:col-span-2">
-          <Section title="Department distribution" description="Headcount by department" className="h-full">
-            <HorizontalBars data={deptData} name="Employees" />
+        <motion.div {...fade(11)} className="min-w-0 lg:col-span-2">
+          <Section title="Performance distribution" description={`Average rating ${avgPerf.toFixed(2)} / 5`} className="h-full">
+            {topPerformer && (
+              <div className="mb-4 flex items-center gap-3 rounded-lg border bg-subtle p-3">
+                <PersonAvatar name={topPerformer.name} className="size-10" />
+                <div className="min-w-0 flex-1">
+                  <div className="text-xs text-muted-foreground">Top performer</div>
+                  <div className="truncate text-sm font-semibold">{topPerformer.name}</div>
+                  <div className="truncate text-xs text-muted-foreground">
+                    {topPerformer.title} · {department(topPerformer.departmentId)?.name}
+                  </div>
+                </div>
+                <Badge variant="soft" className="shrink-0 tabular">
+                  <Award /> {topPerformer.performance.toFixed(1)} / 5
+                </Badge>
+              </div>
+            )}
+            <SimpleBars data={perf} xKey="bucket" yKey="employees" name="Employees" height={220} />
           </Section>
         </motion.div>
-        <motion.div {...fade(5)} className="min-w-0">
-          <Section title="Performance distribution" description={`Average rating ${avgPerf.toFixed(2)} / 5`} className="h-full">
-            <SimpleBars data={perf} xKey="bucket" yKey="employees" name="Employees" height={240} />
+        <motion.div {...fade(12)} className="min-w-0">
+          <Section title="Gender diversity" description="Active employees" className="h-full">
+            <Donut data={gender} centerValue={`${femalePct}%`} centerLabel="women" />
           </Section>
         </motion.div>
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <motion.div {...fade(6)} className="min-w-0 lg:col-span-2">
+        <motion.div {...fade(13)} className="min-w-0 lg:col-span-2">
           <Section
             title="Needs your attention"
-            description={`${pendingLeaves.length + payrollPending.length + expiringDocs.length + probationDue.length} items across approvals and compliance`}
+            description={`${pendingLeaves.length + approvals} items across approvals and compliance`}
             className="h-full"
             action={
               <Button asChild variant="ghost" size="sm">
-                <Link to="/app/leave">
+                <Link to="/app/leave?tab=approvals">
                   All approvals <ArrowRight />
                 </Link>
               </Button>
@@ -235,66 +314,14 @@ export function OrgDashboard() {
                   cta="Schedule"
                 />
               ))}
-              {pendingLeaves.length + payrollPending.length + expiringDocs.length + probationDue.length === 0 && (
+              {pendingLeaves.length + approvals === 0 && (
                 <EmptyState icon={BadgeCheck} title="You're all caught up" description="New approvals and alerts will appear here." />
               )}
             </ul>
           </Section>
         </motion.div>
-
-        <motion.div {...fade(7)} className="min-w-0">
-          <Section title="Upcoming birthdays" description="Next 30 days" className="h-full">
-            {birthdays.length === 0 ? (
-              <EmptyState icon={Cake} title="No birthdays soon" />
-            ) : (
-              <ul className="space-y-3">
-                {birthdays.slice(0, 6).map((b) => (
-                  <li key={b.employee.id} className="flex items-center gap-3">
-                    <PersonAvatar name={b.employee.name} className="size-9" />
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate text-sm font-medium">{b.employee.name}</div>
-                      <div className="truncate text-xs text-muted-foreground">{department(b.employee.departmentId)?.name}</div>
-                    </div>
-                    <Badge variant={b.days <= 3 ? 'soft' : 'muted'}>{b.days === 0 ? 'Today' : b.days === 1 ? 'Tomorrow' : formatDate(b.date, 'short')}</Badge>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </Section>
-        </motion.div>
-
-        <motion.div {...fade(8)} className="min-w-0 lg:col-span-2">
-          <Section title="Onboarding in progress" description={`${onboarding.length} new starters`} className="h-full">
-            {onboarding.length === 0 ? (
-              <EmptyState icon={Rocket} title="No active onboarding" description="New hires appear here after their offer is accepted." />
-            ) : (
-              <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                {onboarding.slice(0, 6).map((e) => (
-                  <li key={e.id}>
-                    <Link to="/app/onboarding" className="flex items-center gap-3 rounded-lg p-2 -m-2 transition hover:bg-muted/60">
-                      <PersonAvatar name={e.name} className="size-9" />
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-baseline justify-between gap-2">
-                          <span className="truncate text-sm font-medium">{e.name}</span>
-                          <span className="text-xs font-semibold tabular">{e.onboardingProgress}%</span>
-                        </div>
-                        <div className="mb-1.5 truncate text-xs text-muted-foreground">
-                          {e.title} · started {formatDate(e.startDate, 'short')}
-                        </div>
-                        <Progress value={e.onboardingProgress} className="h-1.5" />
-                      </div>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </Section>
-        </motion.div>
-
-        <motion.div {...fade(9)} className="min-w-0">
-          <Section title="Recent activity" className="h-full">
-            <Timeline items={activity} />
-          </Section>
+        <motion.div {...fade(14)} className="min-w-0">
+          <TodoCard initial={todos} />
         </motion.div>
       </div>
     </div>

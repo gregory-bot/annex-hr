@@ -33,9 +33,8 @@ export function StatCard({
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, delay: index * 0.04 }}
-      whileHover={{ y: -2 }}
       className={cn(
-        'group relative h-full overflow-hidden rounded-xl border bg-card p-4 shadow-[0_1px_2px_rgba(16,24,40,0.04)] transition-shadow hover:shadow-lg hover:shadow-black/[0.04] sm:p-5',
+        'group relative h-full overflow-hidden rounded-xl border bg-card p-4 shadow-[0_1px_2px_rgba(16,24,40,0.04)] sm:p-5',
         tone === 'primary' && 'border-transparent bg-gradient-to-br from-primary to-[#8f0d17] text-white',
       )}
     >

@@ -63,14 +63,13 @@ export function WorkspaceInput({ id, value, onChange, invalid }: { id: string; v
         id={id}
         value={value}
         onChange={(e) => onChange(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
-        placeholder="annex"
+        placeholder="Your company workspace"
         autoComplete="organization"
         autoCapitalize="none"
         spellCheck={false}
         aria-invalid={invalid || undefined}
         className="min-w-0 flex-1 bg-transparent px-3 outline-none placeholder:text-muted-foreground/70"
       />
-      <span className="flex items-center border-l bg-muted px-3 text-muted-foreground">.annexhr.com</span>
     </div>
   )
 }

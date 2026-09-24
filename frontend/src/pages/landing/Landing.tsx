@@ -30,12 +30,14 @@ import { cn } from '@/lib/utils'
 import { HeroDashboard } from './HeroDashboard'
 import { WorkflowFlow } from './WorkflowFlow'
 import { TrustedLogos } from './TrustedLogos'
+import { Pricing } from './Pricing'
 import { Reveal, SectionHeading } from './Reveal'
 
 const navLinks = [
   { label: 'Platform', href: '#platform' },
   { label: 'Workflow', href: '#workflow' },
   { label: 'Why Annex', href: '#why' },
+  { label: 'Pricing', href: '#pricing' },
   { label: 'Customers', href: '#customers' },
 ]
 
@@ -340,7 +342,7 @@ function CtaBand({ onDemo }: { onDemo: () => void }) {
 function Footer({ onDemo }: { onDemo: () => void }) {
   const cols: { title: string; links: { label: string; href: string }[] }[] = [
     { title: 'Company', links: [{ label: 'About', href: '#why' }, { label: 'Customers', href: '#customers' }, { label: 'Careers', href: '#' }, { label: 'Contact', href: 'mailto:hello@annexhr.com' }] },
-    { title: 'Resources', links: [{ label: 'Platform', href: '#platform' }, { label: 'Kenya payroll guide', href: '#' }, { label: 'Help centre', href: '#' }, { label: 'Status', href: '#' }] },
+    { title: 'Resources', links: [{ label: 'Platform', href: '#platform' }, { label: 'Pricing', href: '#pricing' }, { label: 'Kenya payroll guide', href: '#' }, { label: 'Help centre', href: '#' }, { label: 'Status', href: '#' }] },
     { title: 'Legal', links: [{ label: 'Privacy', href: '#' }, { label: 'Terms', href: '#' }, { label: 'Data processing', href: '#' }] },
   ]
   return (
@@ -444,6 +446,7 @@ export default function Landing() {
         <Platform />
         <Workflow />
         <Why />
+        <Pricing onContactSales={openDemo} />
         <Testimonials />
         <CtaBand onDemo={openDemo} />
       </main>
